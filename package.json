@@ -1,0 +1,23 @@
+{
+  "name": "kidstech-parent-study-assistant",
+  "version": "1.0.0",
+  "description": "KIDSTECH - AI-Powered K-12 Parent Study Assistant & Homework Bridge Platform",
+  "scripts": {
+    "start": "node server/server.js",
+    "server": "node server/server.js",
+    "client": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "test": "node server/test.js"
+  },
+  "keywords": [
+    "ai-education",
+    "k-12",
+    "coppa",
+    "common-core",
+    "ngss",
+    "parent-dashboard",
+    "homework-assistant"
+  ],
+  "author": "KIDSTECH",
+  "license": "MIT"
+}
