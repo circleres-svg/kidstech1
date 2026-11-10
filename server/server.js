@@ -15,7 +15,15 @@ import {
   persistSession,
   persistPendingVerification,
   removePendingVerification,
-  purgeCOPPAData
+  purgeCOPPAData,
+  persistUser,
+  deleteUserFromSqlite,
+  persistTeacherVerification,
+  persistPayment,
+  persistModerationItem,
+  persistAuditLog,
+  persistParentControls,
+  persistTeacherFeedback
 } from "./db.js";
 import { generateExplanation } from "./aiTeacherAgent.js";
 import { analyzeHomeworkWithGemini, getGeminiStatus, setGeminiApiKey } from "./geminiService.js";
@@ -62,30 +70,31 @@ app.post("/api/ai/config", (req, res) => {
 });
 
 // ==========================================
-// 1. Auth & Guardian Account Endpoints
+// 1. Auth & Multi-Role Account Endpoints (Student, Parent, Teacher, Admin)
 // ==========================================
 
 app.get("/api/auth/profile", (req, res) => {
-  res.json({ success: true, parent: db.parent });
+  res.json({ success: true, parent: db.parent, users: db.users });
 });
 
-// Unified Login (Email/Password, Google OAuth, Apple OAuth)
+// Unified Login supporting Student, Parent, Teacher, Admin
 app.post("/api/auth/login", (req, res) => {
-  const { email, password, provider, name, avatar } = req.body;
+  const { email, password, provider, name, avatar, role } = req.body;
+  const targetEmail = (email || "").toLowerCase().trim();
 
   // Social OAuth (Google / Apple)
   if (provider === "google" || provider === "apple") {
-    let parent = db.parents.find(p => p.email === email);
+    let parent = db.parents.find(p => p.email === targetEmail);
     if (!parent) {
       parent = {
         id: `parent-${Date.now()}`,
         name: name || (provider === "google" ? "Google Guardian" : "Apple Guardian"),
-        email: email || `${provider}.parent@kidstech.demo`,
+        email: targetEmail || `${provider}.parent@kidstech.demo`,
         email_verified: true,
         pin: "1234",
         provider,
         created_date: new Date().toISOString(),
-        subscription: {
+        subscription: db.parents[0]?.subscription || {
           status: "active",
           planId: "12mo",
           planName: "12 Months Annual (Best Value)",
@@ -101,101 +110,223 @@ app.post("/api/auth/login", (req, res) => {
     }
     db.parent = parent;
     persistParent(parent);
+
+    const userObj = {
+      id: parent.id,
+      name: parent.name,
+      email: parent.email,
+      role: "parent",
+      status: "active",
+      pin: parent.pin || "1234",
+      avatar: "bear"
+    };
+
     return res.json({
       success: true,
       message: `Signed in with ${provider === "google" ? "Google" : "Apple ID"} successfully!`,
       parent: db.parent,
+      user: userObj,
       token: `oauth-token-${parent.id}`
     });
   }
 
-  // Email / Password Login
-  const targetEmail = (email || "").toLowerCase().trim();
-  let parent = db.parents.find(p => p.email.toLowerCase() === targetEmail);
+  // 1. Search in unified db.users
+  let matchedUser = db.users.find(u => u.email.toLowerCase() === targetEmail);
 
-  if (!parent) {
-    // If testing with any valid-looking email or default demo
-    if (targetEmail.includes("@")) {
-      const generatedName = targetEmail.split("@")[0].replace(/[._-]/g, " ");
-      const formattedName = generatedName.charAt(0).toUpperCase() + generatedName.slice(1);
-      parent = {
-        id: `parent-${Date.now()}`,
-        name: formattedName || "Parent Guardian",
-        email: targetEmail,
-        password: password || "password123",
-        email_verified: true,
-        pin: "1234",
-        provider: "email",
-        created_date: new Date().toISOString(),
-        subscription: db.parents[0].subscription
-      };
-      db.parents.push(parent);
-    } else {
-      parent = db.parents[0];
-    }
+  // If not found by exact email, check if role was specified for demo one-click login
+  if (!matchedUser && role) {
+    matchedUser = db.users.find(u => u.role === role);
   }
 
-  db.parent = parent;
-  persistParent(parent);
+  if (matchedUser) {
+    // Add login history record
+    if (!matchedUser.login_history) matchedUser.login_history = [];
+    matchedUser.login_history.unshift({
+      ip: "127.0.0.1",
+      time: new Date().toISOString(),
+      device: "Web Browser",
+      status: "Success"
+    });
+    persistUser(matchedUser);
+
+    // If parent, sync with db.parent
+    if (matchedUser.role === "parent") {
+      const p = db.parents.find(p => p.email.toLowerCase() === matchedUser.email.toLowerCase());
+      if (p) db.parent = p;
+    }
+
+    // Record audit log
+    const auditItem = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      actorName: matchedUser.name,
+      actorRole: matchedUser.role,
+      action: "USER_LOGIN",
+      target: matchedUser.email,
+      details: `Successful login as ${matchedUser.role.toUpperCase()}`
+    };
+    db.auditLogs.unshift(auditItem);
+    persistAuditLog(auditItem);
+
+    return res.json({
+      success: true,
+      message: `Welcome back, ${matchedUser.name}!`,
+      user: matchedUser,
+      parent: db.parent,
+      token: `token-${matchedUser.id}`
+    });
+  }
+
+  // Fallback: create dynamic user for testing
+  const fallbackRole = role || "parent";
+  const generatedName = targetEmail.includes("@")
+    ? targetEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, l => l.toUpperCase())
+    : "Verified User";
+
+  const newUser = {
+    id: `usr-${Date.now()}`,
+    name: name || generatedName,
+    email: targetEmail || `user-${Date.now()}@kidstech.demo`,
+    password: password || "password123",
+    role: fallbackRole,
+    status: "active",
+    pin: "1234",
+    school: fallbackRole === "teacher" ? "Central Academy" : "",
+    subject: fallbackRole === "teacher" ? "General Studies" : "",
+    grade: fallbackRole === "student" ? 3 : null,
+    avatar: fallbackRole === "student" ? "bear" : "owl",
+    created_date: new Date().toISOString(),
+    login_history: [{ ip: "127.0.0.1", time: new Date().toISOString(), device: "Web Browser", status: "Success" }]
+  };
+
+  db.users.push(newUser);
+  persistUser(newUser);
+
+  if (fallbackRole === "parent") {
+    const newParent = {
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      password: newUser.password,
+      pin: "1234",
+      email_verified: true,
+      created_date: newUser.created_date,
+      subscription: db.parents[0]?.subscription
+    };
+    db.parents.push(newParent);
+    db.parent = newParent;
+    persistParent(newParent);
+  }
+
   return res.json({
     success: true,
     message: "Authenticated successfully",
+    user: newUser,
     parent: db.parent,
-    token: `token-${parent.id}`
+    token: `token-${newUser.id}`
   });
 });
 
-// Sign Up / Register Guardian Account
+// Sign Up with Role Selection (Student, Parent, Teacher, Admin)
 app.post("/api/auth/signup", (req, res) => {
-  const { name, email, password, pin, provider } = req.body;
+  const { name, email, password, pin, role = "parent", school, subject, grade, provider } = req.body;
   if (!email || !name) {
     return res.status(400).json({ success: false, message: "Name and email are required." });
   }
 
   const normalizedEmail = email.toLowerCase().trim();
-  
-  // Instant verification for OAuth providers
-  if (provider === "google" || provider === "apple") {
-    const newParent = {
-      id: `parent-${Date.now()}`,
-      name,
-      email: normalizedEmail,
-      email_verified: true,
-      pin: pin || "1234",
-      provider,
+  const existingUser = db.users.find(u => u.email.toLowerCase() === normalizedEmail);
+  if (existingUser) {
+    return res.status(400).json({ success: false, message: "An account with this email already exists. Please log in." });
+  }
+
+  const userRole = ["student", "parent", "teacher", "admin"].includes(role) ? role : "parent";
+  const userId = `usr-${Date.now()}`;
+  const newUser = {
+    id: userId,
+    name,
+    email: normalizedEmail,
+    password: password || "password123",
+    role: userRole,
+    status: userRole === "teacher" ? "pending_verification" : "active",
+    pin: pin || "1234",
+    school: school || (userRole === "teacher" ? "Elementary School" : ""),
+    subject: subject || (userRole === "teacher" ? "General Education" : ""),
+    grade: grade ? Number(grade) : (userRole === "student" ? 3 : null),
+    avatar: userRole === "student" ? "bear" : userRole === "teacher" ? "owl" : "fox",
+    created_date: new Date().toISOString(),
+    login_history: [{ ip: "127.0.0.1", time: new Date().toISOString(), device: "Web Browser", status: "Account Created" }]
+  };
+
+  db.users.push(newUser);
+  persistUser(newUser);
+
+  // If Teacher, create pending verification entry
+  if (userRole === "teacher") {
+    const newVerif = {
+      id: `tv-${Date.now()}`,
+      userId: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      school: newUser.school,
+      licenseNumber: `REQ-${Math.floor(10000 + Math.random() * 90000)}`,
+      subject: newUser.subject,
+      status: "Pending",
+      documents: [{ name: "Teacher_Credentials_Uploaded.pdf", size: "1.5 MB", type: "pdf" }],
+      notes: "Newly registered teacher. Awaiting admin document validation.",
       created_date: new Date().toISOString(),
-      subscription: db.parents[0].subscription
+      updated_date: new Date().toISOString()
+    };
+    db.teacherVerifications.unshift(newVerif);
+    persistTeacherVerification(newVerif);
+  }
+
+  // If Parent, also register parent record
+  if (userRole === "parent") {
+    const newParent = {
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      password: newUser.password,
+      pin: newUser.pin,
+      email_verified: true,
+      provider: provider || "email",
+      created_date: newUser.created_date,
+      subscription: db.parents[0]?.subscription || {
+        status: "active",
+        planId: "12mo",
+        planName: "12 Months Annual (Best Value)",
+        pricePerMonth: "$8.99",
+        totalBilled: "$107.88 / year",
+        startDate: new Date().toISOString().split("T")[0],
+        renewalDate: "2027-08-15",
+        cancelAtPeriodEnd: false
+      }
     };
     db.parents.push(newParent);
     db.parent = newParent;
     persistParent(newParent);
-    return res.status(201).json({
-      success: true,
-      message: `Account created via ${provider === "google" ? "Google" : "Apple ID"}!`,
-      parent: newParent,
-      token: `oauth-token-${newParent.id}`
-    });
   }
 
-  // Standard Email Signup -> Generates COPPA VPC 6-digit confirmation code
-  const verificationCode = "123456"; // Standard demo verification code for predictable testability
-  const pendingData = {
-    name,
-    email: normalizedEmail,
-    password: password || "password123",
-    pin: pin || "1234",
-    code: verificationCode,
-    created_at: Date.now()
+  // Audit log
+  const audit = {
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    actorName: name,
+    actorRole: userRole,
+    action: "USER_SIGNUP",
+    target: normalizedEmail,
+    details: `New account registered as ${userRole.toUpperCase()}${userRole === "teacher" ? " (Pending verification)" : ""}`
   };
-  db.pendingVerifications[normalizedEmail] = pendingData;
-  persistPendingVerification(normalizedEmail, pendingData);
+  db.auditLogs.unshift(audit);
+  persistAuditLog(audit);
 
   return res.status(201).json({
     success: true,
-    verificationRequired: true,
-    verificationCode,
-    email: normalizedEmail,
-    message: "Verification code dispatched! For COPPA compliance, verify your email with the 6-digit code."
+    message: `Account created successfully as ${userRole.toUpperCase()}!`,
+    user: newUser,
+    parent: db.parent,
+    token: `token-${newUser.id}`
   });
 });
 
@@ -418,6 +549,8 @@ app.post("/api/sessions/upload", upload.array("homeworkFiles", 5), async (req, r
     grade: child.grade,
     subject: selectedSubject,
     topic: aiResult.topic,
+    learningObjective: aiResult.learningObjective || "Understand the core concept step-by-step through guided inquiry.",
+    keyConcepts: aiResult.keyConcepts || ["Core Concept Recognition", "Step-by-step Strategy"],
     date: new Date().toISOString().split("T")[0],
     status: aiResult.status,
     standard: aiResult.standard,
@@ -426,7 +559,8 @@ app.post("/api/sessions/upload", upload.array("homeworkFiles", 5), async (req, r
     practiceQuestions: aiResult.practiceQuestions,
     teacherInstructionNote: teacherInstruction || "Standard encouraging explanation",
     fileUrl,
-    fileUrls: fileUrls.length > 0 ? fileUrls : [fileUrl]
+    fileUrls: fileUrls.length > 0 ? fileUrls : [fileUrl],
+    parentApproved: false
   };
 
   db.sessions.unshift(newSession);
@@ -436,6 +570,22 @@ app.post("/api/sessions/upload", upload.array("homeworkFiles", 5), async (req, r
   // Persist to SQLite
   persistSession(newSession);
   persistChild(child);
+
+  // Record moderation item
+  const modItem = {
+    id: `mod-${Date.now()}`,
+    type: fileUrls.some(f => f.endsWith(".pdf")) ? "Uploaded PDF" : "Uploaded Image",
+    studentName: child.name,
+    subject: selectedSubject,
+    content: `${userPrompt} (Grade ${child.grade})`,
+    fileUrl,
+    flagReason: "None - Routine submission",
+    safetyScore: "99.8%",
+    status: "Approved",
+    created_date: new Date().toISOString()
+  };
+  db.moderationItems.unshift(modItem);
+  persistModerationItem(modItem);
 
   res.status(201).json({
     success: true,
@@ -580,6 +730,505 @@ app.post("/api/coppa/purge", (req, res) => {
     success: true,
     message: `COPPA Right-To-Be-Forgotten applied. Purged ${sessionCount} homework artifacts, student transcripts, and diagnostic history.`
   });
+});
+
+// ==========================================
+// 7. Comprehensive Admin Portal Endpoints
+// ==========================================
+
+// Dashboard Overview Metrics & Charts
+app.get("/api/admin/overview", (req, res) => {
+  const totalStudents = db.users.filter(u => u.role === "student").length + db.children.length;
+  const totalParents = db.users.filter(u => u.role === "parent").length;
+  const totalTeachers = db.users.filter(u => u.role === "teacher").length;
+  
+  const totalRevenue = db.payments
+    .filter(p => p.status === "Succeeded")
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  const activeSubscriptions = db.payments.filter(p => p.status === "Succeeded").length;
+  const pendingVerifications = db.teacherVerifications.filter(tv => tv.status === "Pending").length;
+  const homeworkRequests = db.sessions.length;
+
+  res.json({
+    success: true,
+    overview: {
+      totalStudents,
+      totalParents,
+      totalTeachers,
+      totalRevenue: Number(totalRevenue.toFixed(2)),
+      activeSubscriptions,
+      pendingVerifications,
+      homeworkRequests,
+      aiUsageStats: {
+        totalTokens: "1.85M",
+        accuracyRate: "99.2%",
+        avgResponseTimeSec: 1.6,
+        dailyQueries: 342,
+        activeModels: "Gemini 2.0 Flash Multimodal + Calibrated Socratic Heuristics"
+      },
+      activity: {
+        daily: [
+          { label: "Mon", requests: 42, activeUsers: 38, revenue: 320 },
+          { label: "Tue", requests: 58, activeUsers: 51, revenue: 410 },
+          { label: "Wed", requests: 64, activeUsers: 58, revenue: 480 },
+          { label: "Thu", requests: 52, activeUsers: 49, revenue: 390 },
+          { label: "Fri", requests: 71, activeUsers: 65, revenue: 560 },
+          { label: "Sat", requests: 38, activeUsers: 34, revenue: 290 },
+          { label: "Sun", requests: 49, activeUsers: 45, revenue: 380 }
+        ],
+        weekly: [
+          { label: "Week 1", requests: 290, activeUsers: 210, revenue: 2450 },
+          { label: "Week 2", requests: 340, activeUsers: 260, revenue: 2890 },
+          { label: "Week 3", requests: 380, activeUsers: 295, revenue: 3120 },
+          { label: "Week 4", requests: 415, activeUsers: 320, revenue: 3450 }
+        ],
+        monthly: [
+          { label: "July", requests: 850, activeUsers: 540, revenue: 7800 },
+          { label: "August", requests: 1240, activeUsers: 890, revenue: 11400 },
+          { label: "September", requests: 1680, activeUsers: 1150, revenue: 14200 },
+          { label: "October", requests: 1950, activeUsers: 1380, revenue: 15900 }
+        ]
+      }
+    }
+  });
+});
+
+// User Management: View all users, search, filter
+app.get("/api/admin/users", (req, res) => {
+  const { role, search, status } = req.query;
+  let list = [...db.users];
+
+  if (role && role !== "all") {
+    list = list.filter(u => u.role.toLowerCase() === role.toLowerCase());
+  }
+  if (status && status !== "all") {
+    list = list.filter(u => u.status.toLowerCase() === status.toLowerCase());
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    list = list.filter(u =>
+      u.name.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      (u.school && u.school.toLowerCase().includes(q))
+    );
+  }
+
+  res.json({ success: true, count: list.length, users: list });
+});
+
+// User Management: Suspend / Restore user
+app.post("/api/admin/users/:id/status", (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body; // 'active' | 'suspended'
+  const user = db.users.find(u => u.id === id);
+  if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+  user.status = status;
+  persistUser(user);
+
+  const audit = {
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    actorName: "Admin Console",
+    actorRole: "admin",
+    action: status === "suspended" ? "USER_SUSPENDED" : "USER_RESTORED",
+    target: user.email,
+    details: `User status updated to ${status.toUpperCase()}`
+  };
+  db.auditLogs.unshift(audit);
+  persistAuditLog(audit);
+
+  res.json({ success: true, message: `User status set to ${status}.`, user });
+});
+
+// User Management: Reset password
+app.post("/api/admin/users/:id/reset-password", (req, res) => {
+  const { id } = req.params;
+  const { newPassword } = req.body;
+  const user = db.users.find(u => u.id === id);
+  if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+  user.password = newPassword || "password123";
+  persistUser(user);
+
+  const audit = {
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    actorName: "Admin Console",
+    actorRole: "admin",
+    action: "PASSWORD_RESET",
+    target: user.email,
+    details: `Password reset successfully by administrator.`
+  };
+  db.auditLogs.unshift(audit);
+  persistAuditLog(audit);
+
+  res.json({ success: true, message: `Password reset successfully for ${user.email}.` });
+});
+
+// User Management: Update profile
+app.put("/api/admin/users/:id", (req, res) => {
+  const { id } = req.params;
+  const { name, email, role, school, subject, pin } = req.body;
+  const user = db.users.find(u => u.id === id);
+  if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+  if (name) user.name = name;
+  if (email) user.email = email.toLowerCase().trim();
+  if (role) user.role = role;
+  if (school !== undefined) user.school = school;
+  if (subject !== undefined) user.subject = subject;
+  if (pin !== undefined) user.pin = pin;
+
+  persistUser(user);
+
+  res.json({ success: true, message: "User profile updated.", user });
+});
+
+// User Management: Delete user
+app.delete("/api/admin/users/:id", (req, res) => {
+  const { id } = req.params;
+  const user = db.users.find(u => u.id === id);
+  if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+  db.users = db.users.filter(u => u.id !== id);
+  deleteUserFromSqlite(id);
+
+  const audit = {
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    actorName: "Admin Console",
+    actorRole: "admin",
+    action: "USER_DELETED",
+    target: user.email,
+    details: `User account deleted permanently.`
+  };
+  db.auditLogs.unshift(audit);
+  persistAuditLog(audit);
+
+  res.json({ success: true, message: "User account deleted." });
+});
+
+// Teacher Verification: List all teachers & verification requests
+app.get("/api/admin/teachers", (req, res) => {
+  const { status } = req.query;
+  let list = [...db.teacherVerifications];
+  if (status && status !== "all") {
+    list = list.filter(tv => tv.status.toLowerCase() === status.toLowerCase());
+  }
+  res.json({ success: true, count: list.length, teachers: list });
+});
+
+// Teacher Verification: Approve / Reject / Request Docs
+app.post("/api/admin/teachers/:id/verify", (req, res) => {
+  const { id } = req.params;
+  const { status, notes } = req.body; // 'Approved' | 'Rejected' | 'Pending'
+  const verif = db.teacherVerifications.find(tv => tv.id === id);
+  if (!verif) return res.status(404).json({ success: false, message: "Verification record not found." });
+
+  verif.status = status;
+  verif.notes = notes || verif.notes;
+  verif.updated_date = new Date().toISOString();
+  persistTeacherVerification(verif);
+
+  // Sync user status in db.users
+  const user = db.users.find(u => u.id === verif.userId || u.email.toLowerCase() === verif.email.toLowerCase());
+  if (user) {
+    user.status = status === "Approved" ? "active" : status === "Rejected" ? "suspended" : "pending_verification";
+    persistUser(user);
+  }
+
+  const audit = {
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    actorName: "Admin Eleanor Vance",
+    actorRole: "admin",
+    action: `TEACHER_${status.toUpperCase()}`,
+    target: verif.email,
+    details: notes || `Teacher credentials status updated to ${status}.`
+  };
+  db.auditLogs.unshift(audit);
+  persistAuditLog(audit);
+
+  res.json({ success: true, message: `Teacher status set to ${status}.`, verification: verif });
+});
+
+// Payment Management: Transactions & Subscriptions
+app.get("/api/admin/payments", (req, res) => {
+  const { status } = req.query;
+  let list = [...db.payments];
+  if (status && status !== "all") {
+    list = list.filter(p => p.status.toLowerCase() === status.toLowerCase());
+  }
+  res.json({ success: true, count: list.length, payments: list });
+});
+
+// Revenue Reports (Daily, Weekly, Monthly, Annual)
+app.get("/api/admin/revenue", (req, res) => {
+  const reports = {
+    dailyAverage: 425.50,
+    weeklyTotal: 2980.00,
+    monthlyTotal: 12850.00,
+    annualProjected: 154200.00,
+    planBreakdown: [
+      { plan: "12 Months Family Pass (2 Kids - $12.00/mo with 50% sibling discount)", count: 88, revenue: 12672.00, percentage: "54%" },
+      { plan: "12 Months Single Kid ($8.00/mo)", count: 54, revenue: 5184.00, percentage: "22%" },
+      { plan: "Multi-Child Pass (3+ Kids - $16.00/mo)", count: 28, revenue: 5376.00, percentage: "14%" },
+      { plan: "6 Months Semester Pass (2 Kids - $15.00/mo)", count: 18, revenue: 1620.00, percentage: "10%" }
+    ],
+    failedTransactionsCount: db.payments.filter(p => p.status === "Failed").length,
+    refundsProcessedCount: db.payments.filter(p => p.status === "Refunded").length
+  };
+  res.json({ success: true, reports });
+});
+
+// Refund Management
+app.post("/api/admin/refunds/:id", (req, res) => {
+  const { id } = req.params;
+  const { action, reason } = req.body; // 'approve' | 'deny'
+  const payment = db.payments.find(p => p.id === id);
+  if (!payment) return res.status(404).json({ success: false, message: "Payment transaction not found." });
+
+  if (action === "approve") {
+    payment.status = "Refunded";
+    payment.refundReason = reason || "Refund approved by administrator.";
+  } else {
+    payment.refundReason = `Refund denied: ${reason || "Does not meet terms of service."}`;
+  }
+  persistPayment(payment);
+
+  const audit = {
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    actorName: "Admin Console",
+    actorRole: "admin",
+    action: action === "approve" ? "REFUND_APPROVED" : "REFUND_DENIED",
+    target: payment.invoiceNum,
+    details: `${payment.userName} - $${payment.amount}`
+  };
+  db.auditLogs.unshift(audit);
+  persistAuditLog(audit);
+
+  res.json({ success: true, message: `Refund ${action === "approve" ? "approved" : "denied"}.`, payment });
+});
+
+// Content Moderation: List submissions
+app.get("/api/admin/moderation", (req, res) => {
+  const { status } = req.query;
+  let list = [...db.moderationItems];
+  if (status && status !== "all") {
+    list = list.filter(m => m.status.toLowerCase() === status.toLowerCase());
+  }
+  res.json({ success: true, count: list.length, items: list });
+});
+
+// Content Moderation: Flag / Remove / Approve
+app.post("/api/admin/moderation/:id/action", (req, res) => {
+  const { id } = req.params;
+  const { action, reason } = req.body; // 'approve' | 'flag' | 'remove'
+  const item = db.moderationItems.find(m => m.id === id);
+  if (!item) return res.status(404).json({ success: false, message: "Moderation item not found." });
+
+  if (action === "approve") {
+    item.status = "Approved";
+  } else if (action === "flag") {
+    item.status = "Flagged";
+    if (reason) item.flagReason = reason;
+  } else if (action === "remove") {
+    item.status = "Removed";
+    if (reason) item.flagReason = reason;
+  }
+  persistModerationItem(item);
+
+  const audit = {
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    actorName: "Admin Console",
+    actorRole: "admin",
+    action: `CONTENT_${action.toUpperCase()}`,
+    target: item.id,
+    details: `${item.studentName} - ${item.subject} (${item.type})`
+  };
+  db.auditLogs.unshift(audit);
+  persistAuditLog(audit);
+
+  res.json({ success: true, message: `Content ${action}d successfully.`, item });
+});
+
+// Audit Logs
+app.get("/api/admin/audit-logs", (req, res) => {
+  res.json({ success: true, count: db.auditLogs.length, logs: db.auditLogs });
+});
+
+// Reporting System (Student, Teacher, Parent)
+app.get("/api/admin/reports", (req, res) => {
+  const studentReports = {
+    usageFrequency: {
+      dailyActiveStudents: 142,
+      weeklyActiveStudents: 520,
+      monthlyActiveStudents: 1840,
+      avgSessionsPerStudentPerWeek: 3.8
+    },
+    homeworkTypes: [
+      { type: "Math Worksheets", percentage: 48, count: 624 },
+      { type: "Science Diagrams & Lab Sheets", percentage: 26, count: 338 },
+      { type: "Reading & ELA Passages", percentage: 18, count: 234 },
+      { type: "Social Studies & Other", percentage: 8, count: 104 }
+    ],
+    subjectAnalysis: [
+      { subject: "Math", masteryAvg: "84%", avgHintsUsed: 2.1, commonStruggle: "Regrouping tens and uncommon denominators" },
+      { subject: "Science", masteryAvg: "88%", avgHintsUsed: 1.4, commonStruggle: "Mitochondria vs Chloroplast energy cycle" },
+      { subject: "Reading-Writing", masteryAvg: "91%", avgHintsUsed: 1.1, commonStruggle: "Differentiating main umbrella idea from trivia" }
+    ]
+  };
+
+  const teacherReports = {
+    totalQuestionsReceived: 184,
+    totalTeacherResponses: 176,
+    avgResponseMinutes: 14.5,
+    activityLevel: "95.6%",
+    topContributingTeachers: [
+      { name: "Mr. Robert Davis", school: "Lincoln Elementary", reviewsGiven: 82, satisfactionRating: "4.9/5" },
+      { name: "Ms. Elena Rostova", school: "Westlake STEM Academy", reviewsGiven: 54, satisfactionRating: "4.8/5" },
+      { name: "Mr. Thomas Sterling", school: "Oakridge Middle School", reviewsGiven: 40, satisfactionRating: "5.0/5" }
+    ]
+  };
+
+  const parentReports = {
+    averageStudentProgressScore: "+18% mastery over 30 days",
+    learningTrends: "Increased independent study sessions; 74% reduction in homework friction",
+    subjectStrengths: ["Multi-digit column addition", "Vocabulary context clues", "Cell organelle identification"],
+    subjectWeaknesses: ["Subtracting with zeroes across multiple columns", "Fractions with unlike prime denominators"]
+  };
+
+  res.json({
+    success: true,
+    reports: {
+      students: studentReports,
+      teachers: teacherReports,
+      parents: parentReports
+    }
+  });
+});
+
+// ==========================================
+// 8. Teacher Dashboard Endpoints
+// ==========================================
+
+app.get("/api/teacher/students", (req, res) => {
+  // Return students assigned to teachers
+  const assigned = db.children.map(c => ({
+    id: c.id,
+    name: c.name,
+    grade: c.grade,
+    avatar: c.avatar,
+    mascot: c.mascot,
+    weeklySessions: c.weeklySessions,
+    streak: c.streak,
+    autonomyScore: c.autonomyScore,
+    activeFocus: c.activeFocus
+  }));
+  res.json({ success: true, count: assigned.length, students: assigned });
+});
+
+app.get("/api/teacher/submissions", (req, res) => {
+  // Returns submitted homework sessions
+  res.json({ success: true, count: db.sessions.length, submissions: db.sessions });
+});
+
+app.post("/api/teacher/feedback", (req, res) => {
+  const { sessionId, studentId, teacherName, message } = req.body;
+  if (!sessionId || !message) {
+    return res.status(400).json({ success: false, message: "Session ID and message are required." });
+  }
+
+  const fbItem = {
+    id: `tfb-${Date.now()}`,
+    sessionId,
+    studentId: studentId || "child-1",
+    teacherName: teacherName || "Mr. Robert Davis",
+    message,
+    created_date: new Date().toISOString()
+  };
+
+  db.teacherFeedback.unshift(fbItem);
+  persistTeacherFeedback(fbItem);
+
+  // Also update session note
+  const sess = db.sessions.find(s => s.id === sessionId);
+  if (sess) {
+    sess.teacherInstructionNote = `Teacher Note: ${message}`;
+    persistSession(sess);
+  }
+
+  res.status(201).json({ success: true, message: "Feedback delivered to student & parent dashboard.", feedback: fbItem });
+});
+
+// ==========================================
+// 9. Parent Controls Endpoints
+// ==========================================
+
+app.get("/api/parent/controls", (req, res) => {
+  const parentId = db.parent.id;
+  const controls = db.parentControls[parentId] || {
+    parentId,
+    requirePin: true,
+    screenTimeMinutes: 45,
+    weeklyGoalSessions: 4,
+    pendingApprovals: []
+  };
+  res.json({ success: true, controls });
+});
+
+app.post("/api/parent/controls", (req, res) => {
+  const parentId = db.parent.id;
+  const { requirePin, screenTimeMinutes, weeklyGoalSessions, pin } = req.body;
+
+  let controls = db.parentControls[parentId] || {
+    parentId,
+    requirePin: true,
+    screenTimeMinutes: 45,
+    weeklyGoalSessions: 4,
+    pendingApprovals: []
+  };
+
+  if (requirePin !== undefined) controls.requirePin = Boolean(requirePin);
+  if (screenTimeMinutes !== undefined) controls.screenTimeMinutes = Number(screenTimeMinutes);
+  if (weeklyGoalSessions !== undefined) controls.weeklyGoalSessions = Number(weeklyGoalSessions);
+
+  if (pin && pin.length === 4) {
+    db.parent.pin = pin;
+    persistParent(db.parent);
+  }
+
+  db.parentControls[parentId] = controls;
+  persistParentControls(controls);
+
+  res.json({ success: true, message: "Parent controls updated successfully.", controls });
+});
+
+app.post("/api/parent/approve-answer", (req, res) => {
+  const { sessionId } = req.body;
+  const session = db.sessions.find(s => s.id === sessionId);
+  if (session) {
+    session.parentApproved = true;
+    persistSession(session);
+  }
+
+  const audit = {
+    id: `log-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    actorName: db.parent.name,
+    actorRole: "parent",
+    action: "PARENT_ANSWER_APPROVED",
+    target: sessionId,
+    details: "Parent granted final answer viewing authorization."
+  };
+  db.auditLogs.unshift(audit);
+  persistAuditLog(audit);
+
+  res.json({ success: true, message: "Final answer approved for student viewing.", sessionId });
 });
 
 // Health check

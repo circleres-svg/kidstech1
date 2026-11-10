@@ -94,6 +94,113 @@ function initSchema(db) {
       created_at INTEGER
     );
   `);
+
+  // 5. Unified Users Table (Admins, Teachers, Parents, Students)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT,
+      role TEXT NOT NULL,
+      status TEXT DEFAULT 'active',
+      pin TEXT DEFAULT '1234',
+      school TEXT,
+      subject TEXT,
+      grade INTEGER,
+      parent_name TEXT,
+      avatar TEXT,
+      created_date TEXT,
+      login_history_json TEXT
+    );
+  `);
+
+  // 6. Teacher Verifications Table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS teacher_verifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      school TEXT NOT NULL,
+      license_number TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      status TEXT NOT NULL,
+      documents_json TEXT,
+      notes TEXT,
+      created_date TEXT,
+      updated_date TEXT
+    );
+  `);
+
+  // 7. Payments Table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payments (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      user_name TEXT NOT NULL,
+      amount REAL NOT NULL,
+      plan_id TEXT NOT NULL,
+      plan_name TEXT NOT NULL,
+      status TEXT NOT NULL,
+      date TEXT NOT NULL,
+      invoice_num TEXT NOT NULL,
+      payment_method TEXT NOT NULL,
+      refund_reason TEXT
+    );
+  `);
+
+  // 8. Content Moderation Table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS moderation_items (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      content TEXT NOT NULL,
+      file_url TEXT,
+      flag_reason TEXT,
+      safety_score TEXT,
+      status TEXT NOT NULL,
+      created_date TEXT
+    );
+  `);
+
+  // 9. Audit Logs Table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      timestamp TEXT NOT NULL,
+      actor_name TEXT NOT NULL,
+      actor_role TEXT NOT NULL,
+      action TEXT NOT NULL,
+      target TEXT NOT NULL,
+      details TEXT NOT NULL
+    );
+  `);
+
+  // 10. Parent Controls Table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS parent_controls (
+      parent_id TEXT PRIMARY KEY,
+      require_pin INTEGER DEFAULT 1,
+      screen_time_minutes INTEGER DEFAULT 45,
+      weekly_goal_sessions INTEGER DEFAULT 4,
+      pending_approvals_json TEXT
+    );
+  `);
+
+  // 11. Teacher Feedback Table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS teacher_feedback (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      teacher_name TEXT NOT NULL,
+      message TEXT NOT NULL,
+      created_date TEXT
+    );
+  `);
 }
 
 /**
@@ -106,6 +213,13 @@ export function loadAllData() {
   const childrenRows = db.prepare("SELECT * FROM children ORDER BY created_date ASC").all();
   const sessionsRows = db.prepare("SELECT * FROM sessions ORDER BY date DESC, id DESC").all();
   const pendingRows = db.prepare("SELECT * FROM pending_verifications").all();
+  const usersRows = db.prepare("SELECT * FROM users ORDER BY created_date ASC").all();
+  const teacherVerifRows = db.prepare("SELECT * FROM teacher_verifications ORDER BY created_date DESC").all();
+  const paymentsRows = db.prepare("SELECT * FROM payments ORDER BY date DESC").all();
+  const moderationRows = db.prepare("SELECT * FROM moderation_items ORDER BY created_date DESC").all();
+  const auditRows = db.prepare("SELECT * FROM audit_logs ORDER BY timestamp DESC").all();
+  const controlsRows = db.prepare("SELECT * FROM parent_controls").all();
+  const feedbackRows = db.prepare("SELECT * FROM teacher_feedback ORDER BY created_date DESC").all();
 
   const parents = parentsRows.map(row => ({
     id: row.id,
@@ -166,13 +280,125 @@ export function loadAllData() {
     };
   }
 
-  return { parents, children, sessions, pendingVerifications };
+  const users = usersRows.map(row => ({
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    password: row.password,
+    role: row.role,
+    status: row.status,
+    pin: row.pin,
+    school: row.school,
+    subject: row.subject,
+    grade: row.grade ? Number(row.grade) : null,
+    parent_name: row.parent_name,
+    avatar: row.avatar,
+    created_date: row.created_date,
+    login_history: row.login_history_json ? JSON.parse(row.login_history_json) : []
+  }));
+
+  const teacherVerifications = teacherVerifRows.map(row => ({
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    email: row.email,
+    school: row.school,
+    licenseNumber: row.license_number,
+    subject: row.subject,
+    status: row.status,
+    documents: row.documents_json ? JSON.parse(row.documents_json) : [],
+    notes: row.notes,
+    created_date: row.created_date,
+    updated_date: row.updated_date
+  }));
+
+  const payments = paymentsRows.map(row => ({
+    id: row.id,
+    userId: row.user_id,
+    userName: row.user_name,
+    amount: Number(row.amount),
+    planId: row.plan_id,
+    planName: row.plan_name,
+    status: row.status,
+    date: row.date,
+    invoiceNum: row.invoice_num,
+    paymentMethod: row.payment_method,
+    refundReason: row.refund_reason
+  }));
+
+  const moderationItems = moderationRows.map(row => ({
+    id: row.id,
+    type: row.type,
+    studentName: row.student_name,
+    subject: row.subject,
+    content: row.content,
+    fileUrl: row.file_url,
+    flagReason: row.flag_reason,
+    safetyScore: row.safety_score,
+    status: row.status,
+    created_date: row.created_date
+  }));
+
+  const auditLogs = auditRows.map(row => ({
+    id: row.id,
+    timestamp: row.timestamp,
+    actorName: row.actor_name,
+    actorRole: row.actor_role,
+    action: row.action,
+    target: row.target,
+    details: row.details
+  }));
+
+  const parentControls = {};
+  for (const row of controlsRows) {
+    parentControls[row.parent_id] = {
+      parentId: row.parent_id,
+      requirePin: Boolean(row.require_pin),
+      screenTimeMinutes: Number(row.screen_time_minutes),
+      weeklyGoalSessions: Number(row.weekly_goal_sessions),
+      pendingApprovals: row.pending_approvals_json ? JSON.parse(row.pending_approvals_json) : []
+    };
+  }
+
+  const teacherFeedback = feedbackRows.map(row => ({
+    id: row.id,
+    sessionId: row.session_id,
+    studentId: row.student_id,
+    teacherName: row.teacher_name,
+    message: row.message,
+    created_date: row.created_date
+  }));
+
+  return {
+    parents,
+    children,
+    sessions,
+    pendingVerifications,
+    users,
+    teacherVerifications,
+    payments,
+    moderationItems,
+    auditLogs,
+    parentControls,
+    teacherFeedback
+  };
 }
 
 /**
  * Seed initial records into SQLite if tables are completely empty
  */
-export function seedDefaultDataIfEmpty({ initialParents, initialChildren, initialSessions }) {
+export function seedDefaultDataIfEmpty({
+  initialParents,
+  initialChildren,
+  initialSessions,
+  initialUsers = [],
+  initialTeacherVerifications = [],
+  initialPayments = [],
+  initialModerationItems = [],
+  initialAuditLogs = [],
+  initialParentControls = {},
+  initialTeacherFeedback = []
+}) {
   const db = getDatabase();
   const countRow = db.prepare("SELECT count(*) as count FROM children").get();
 
@@ -189,6 +415,62 @@ export function seedDefaultDataIfEmpty({ initialParents, initialChildren, initia
       persistSession(s);
     }
     console.log("[SQLite] Default seed data committed successfully!");
+  }
+
+  // Seed users if empty
+  const userCount = db.prepare("SELECT count(*) as count FROM users").get();
+  if (Number(userCount.count) === 0 && initialUsers.length > 0) {
+    for (const u of initialUsers) {
+      persistUser(u);
+    }
+  }
+
+  // Seed teacher verifications if empty
+  const tvCount = db.prepare("SELECT count(*) as count FROM teacher_verifications").get();
+  if (Number(tvCount.count) === 0 && initialTeacherVerifications.length > 0) {
+    for (const tv of initialTeacherVerifications) {
+      persistTeacherVerification(tv);
+    }
+  }
+
+  // Seed payments if empty
+  const payCount = db.prepare("SELECT count(*) as count FROM payments").get();
+  if (Number(payCount.count) === 0 && initialPayments.length > 0) {
+    for (const pay of initialPayments) {
+      persistPayment(pay);
+    }
+  }
+
+  // Seed moderation items if empty
+  const modCount = db.prepare("SELECT count(*) as count FROM moderation_items").get();
+  if (Number(modCount.count) === 0 && initialModerationItems.length > 0) {
+    for (const item of initialModerationItems) {
+      persistModerationItem(item);
+    }
+  }
+
+  // Seed audit logs if empty
+  const logCount = db.prepare("SELECT count(*) as count FROM audit_logs").get();
+  if (Number(logCount.count) === 0 && initialAuditLogs.length > 0) {
+    for (const log of initialAuditLogs) {
+      persistAuditLog(log);
+    }
+  }
+
+  // Seed parent controls if empty
+  const pcCount = db.prepare("SELECT count(*) as count FROM parent_controls").get();
+  if (Number(pcCount.count) === 0 && Object.keys(initialParentControls).length > 0) {
+    for (const pId of Object.keys(initialParentControls)) {
+      persistParentControls(initialParentControls[pId]);
+    }
+  }
+
+  // Seed teacher feedback if empty
+  const tfCount = db.prepare("SELECT count(*) as count FROM teacher_feedback").get();
+  if (Number(tfCount.count) === 0 && initialTeacherFeedback.length > 0) {
+    for (const fb of initialTeacherFeedback) {
+      persistTeacherFeedback(fb);
+    }
   }
 }
 
@@ -319,4 +601,175 @@ export function removePendingVerification(email) {
 export function purgeCOPPAData() {
   const db = getDatabase();
   db.exec("DELETE FROM sessions;");
+}
+
+/**
+ * Persist User
+ */
+export function persistUser(user) {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO users (
+      id, name, email, password, role, status, pin, school, subject, grade, parent_name, avatar, created_date, login_history_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    user.id,
+    user.name,
+    user.email.toLowerCase().trim(),
+    user.password || "password123",
+    user.role || "student",
+    user.status || "active",
+    user.pin || "1234",
+    user.school || "",
+    user.subject || "",
+    user.grade || null,
+    user.parent_name || "",
+    user.avatar || "",
+    user.created_date || new Date().toISOString(),
+    user.login_history ? JSON.stringify(user.login_history) : "[]"
+  );
+}
+
+/**
+ * Delete User
+ */
+export function deleteUserFromSqlite(userId) {
+  const db = getDatabase();
+  db.prepare("DELETE FROM users WHERE id = ?").run(userId);
+}
+
+/**
+ * Persist Teacher Verification
+ */
+export function persistTeacherVerification(item) {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO teacher_verifications (
+      id, user_id, name, email, school, license_number, subject, status, documents_json, notes, created_date, updated_date
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    item.id,
+    item.userId,
+    item.name,
+    item.email.toLowerCase().trim(),
+    item.school,
+    item.licenseNumber,
+    item.subject,
+    item.status,
+    item.documents ? JSON.stringify(item.documents) : "[]",
+    item.notes || "",
+    item.created_date || new Date().toISOString(),
+    item.updated_date || new Date().toISOString()
+  );
+}
+
+/**
+ * Persist Payment
+ */
+export function persistPayment(item) {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO payments (
+      id, user_id, user_name, amount, plan_id, plan_name, status, date, invoice_num, payment_method, refund_reason
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    item.id,
+    item.userId,
+    item.userName,
+    item.amount,
+    item.planId,
+    item.planName,
+    item.status,
+    item.date,
+    item.invoiceNum,
+    item.paymentMethod,
+    item.refundReason || null
+  );
+}
+
+/**
+ * Persist Moderation Item
+ */
+export function persistModerationItem(item) {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO moderation_items (
+      id, type, student_name, subject, content, file_url, flag_reason, safety_score, status, created_date
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    item.id,
+    item.type,
+    item.studentName,
+    item.subject,
+    item.content,
+    item.fileUrl || "",
+    item.flagReason || "",
+    item.safetyScore || "100%",
+    item.status,
+    item.created_date || new Date().toISOString()
+  );
+}
+
+/**
+ * Persist Audit Log
+ */
+export function persistAuditLog(log) {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO audit_logs (
+      id, timestamp, actor_name, actor_role, action, target, details
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    log.id,
+    log.timestamp || new Date().toISOString(),
+    log.actorName,
+    log.actorRole,
+    log.action,
+    log.target,
+    log.details
+  );
+}
+
+/**
+ * Persist Parent Controls
+ */
+export function persistParentControls(ctrl) {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO parent_controls (
+      parent_id, require_pin, screen_time_minutes, weekly_goal_sessions, pending_approvals_json
+    ) VALUES (?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    ctrl.parentId,
+    ctrl.requirePin ? 1 : 0,
+    ctrl.screenTimeMinutes || 45,
+    ctrl.weeklyGoalSessions || 4,
+    ctrl.pendingApprovals ? JSON.stringify(ctrl.pendingApprovals) : "[]"
+  );
+}
+
+/**
+ * Persist Teacher Feedback
+ */
+export function persistTeacherFeedback(item) {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO teacher_feedback (
+      id, session_id, student_id, teacher_name, message, created_date
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    item.id,
+    item.sessionId,
+    item.studentId,
+    item.teacherName,
+    item.message,
+    item.created_date || new Date().toISOString()
+  );
 }

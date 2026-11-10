@@ -1,11 +1,33 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
-import { X, Lock, Mail, User, ShieldCheck, AlertCircle, ArrowRight, Eye, EyeOff } from "lucide-react";
+import {
+  X,
+  Lock,
+  Mail,
+  User,
+  ShieldCheck,
+  AlertCircle,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  GraduationCap,
+  Sparkles,
+  BookOpen,
+  CheckCircle2
+} from "lucide-react";
 
 export function AuthModal() {
-  const { authModalOpen, setAuthModalOpen, authInitialTab, setParentProfile, setIsLoggedIn, setCurrentView, showToast, API_BASE } = useApp();
+  const {
+    authModalOpen,
+    setAuthModalOpen,
+    authInitialTab,
+    login,
+    loginAsRole,
+    API_BASE,
+    showToast
+  } = useApp();
 
-  const [tab, setTab] = useState(authInitialTab || "login"); // 'login' | 'signup' | 'verify'
+  const [tab, setTab] = useState(authInitialTab || "login"); // 'login' | 'signup' | 'demo'
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -14,29 +36,11 @@ export function AuthModal() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("parent"); // 'student' | 'parent' | 'teacher' | 'admin'
+  const [school, setSchool] = useState("");
+  const [subject, setSubject] = useState("");
   const [pin, setPin] = useState("1234");
   const [coppaConsent, setCoppaConsent] = useState(true);
-  
-  // Verification code state
-  const [verificationCode, setVerificationCode] = useState("");
-  const [pendingEmail, setPendingEmail] = useState("");
-  const [suggestedCode, setSuggestedCode] = useState("123456");
-
-  // Reset tab to authInitialTab when modal opens without cascading effect
-  const [prevModalOpen, setPrevModalOpen] = useState(authModalOpen);
-  if (authModalOpen !== prevModalOpen) {
-    setPrevModalOpen(authModalOpen);
-    if (authModalOpen) {
-      setTab(authInitialTab || "login");
-      setErrorMessage("");
-    }
-  }
-
-  const switchTab = (nextTab) => {
-    setTab(nextTab);
-    setErrorMessage("");
-    if (setAuthInitialTab) setAuthInitialTab(nextTab);
-  };
 
   if (!authModalOpen) return null;
 
@@ -45,87 +49,9 @@ export function AuthModal() {
     setErrorMessage("");
   };
 
-  // Google OAuth Simulation
-  const handleGoogleAuth = async () => {
-    setIsLoading(true);
-    setErrorMessage("");
-    try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: "google",
-          email: "alex.g@gmail.com",
-          name: "Alex Garcia (Google Guardian)"
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setParentProfile(data.parent);
-        setIsLoggedIn(true);
-        setAuthModalOpen(false);
-        setCurrentView("parent-dashboard");
-        showToast(`Signed in with Google! Welcome, ${data.parent.name}`);
-      }
-    } catch (err) {
-      // Fallback local auth
-      const mockParent = {
-        id: "parent-google-101",
-        name: "Alex Garcia (Google Guardian)",
-        email: "alex.g@gmail.com",
-        pin: "1234",
-        provider: "google",
-        subscription: { planName: "12 Months Annual Pass", pricePerMonth: "$8.99" }
-      };
-      setParentProfile(mockParent);
-      setIsLoggedIn(true);
-      setAuthModalOpen(false);
-      setCurrentView("parent-dashboard");
-      showToast("Signed in with Google! Welcome, Alex Garcia");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Apple ID OAuth Simulation
-  const handleAppleAuth = async () => {
-    setIsLoading(true);
-    setErrorMessage("");
-    try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: "apple",
-          email: "jordan.p@icloud.com",
-          name: "Jordan Park (Apple Guardian)"
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setParentProfile(data.parent);
-        setIsLoggedIn(true);
-        setAuthModalOpen(false);
-        setCurrentView("parent-dashboard");
-        showToast(`Signed in with Apple ID! Welcome, ${data.parent.name}`);
-      }
-    } catch (err) {
-      const mockParent = {
-        id: "parent-apple-101",
-        name: "Jordan Park (Apple Guardian)",
-        email: "jordan.p@icloud.com",
-        pin: "1234",
-        provider: "apple",
-        subscription: { planName: "12 Months Annual Pass", pricePerMonth: "$8.99" }
-      };
-      setParentProfile(mockParent);
-      setIsLoggedIn(true);
-      setAuthModalOpen(false);
-      setCurrentView("parent-dashboard");
-      showToast("Signed in with Apple ID! Welcome, Jordan Park");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleDemoSelect = (selectedRole) => {
+    loginAsRole(selectedRole);
+    setAuthModalOpen(false);
   };
 
   // Email / Password Login
@@ -145,32 +71,29 @@ export function AuthModal() {
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
-      if (data.success) {
-        setParentProfile(data.parent);
-        setIsLoggedIn(true);
+      if (data.success && data.user) {
+        login(data.user);
         setAuthModalOpen(false);
-        setCurrentView("parent-dashboard");
-        showToast(`Welcome back, ${data.parent.name}!`);
       } else {
         setErrorMessage(data.message || "Invalid credentials.");
       }
     } catch (err) {
       // Local fallback
-      setParentProfile({
-        name: email.split("@")[0] || "Parent Guardian",
+      const fallbackUser = {
+        id: `usr-${Date.now()}`,
+        name: email.split("@")[0] || "User",
         email,
+        role: email.includes("admin") ? "admin" : email.includes("teacher") ? "teacher" : email.includes("student") ? "student" : "parent",
         pin: "1234"
-      });
-      setIsLoggedIn(true);
+      };
+      login(fallbackUser);
       setAuthModalOpen(false);
-      setCurrentView("parent-dashboard");
-      showToast(`Welcome back!`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Email Sign Up Form Submit
+  // Sign Up Form Submit
   const handleEmailSignup = async (e) => {
     e.preventDefault();
     if (!name || !email) {
@@ -181,10 +104,6 @@ export function AuthModal() {
       setErrorMessage("Please check the COPPA parental consent box to continue.");
       return;
     }
-    if (pin.length !== 4) {
-      setErrorMessage("Please provide a 4-digit Guardian PIN.");
-      return;
-    }
 
     setIsLoading(true);
     setErrorMessage("");
@@ -193,426 +112,330 @@ export function AuthModal() {
       const res = await fetch(`${API_BASE}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, pin })
+        body: JSON.stringify({
+          name,
+          email,
+          password: password || "password123",
+          pin: pin || "1234",
+          role,
+          school,
+          subject
+        })
       });
       const data = await res.json();
-      if (data.success) {
-        setPendingEmail(email);
-        setSuggestedCode(data.verificationCode || "123456");
-        setTab("verify");
-        showToast(data.message || "Verification code dispatched!");
+      if (data.success && data.user) {
+        login(data.user);
+        setAuthModalOpen(false);
       } else {
         setErrorMessage(data.message || "Could not register account.");
       }
     } catch (err) {
-      // Local fallback: jump to verification step
-      setPendingEmail(email);
-      setSuggestedCode("123456");
-      setTab("verify");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Verify Email Code
-  const handleVerifyCode = async (e) => {
-    e.preventDefault();
-    if (!verificationCode) {
-      setErrorMessage("Please enter the 6-digit code.");
-      return;
-    }
-    setIsLoading(true);
-    setErrorMessage("");
-
-    try {
-      const res = await fetch(`${API_BASE}/auth/verify-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: pendingEmail, code: verificationCode })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setParentProfile(data.parent);
-        setIsLoggedIn(true);
-        setAuthModalOpen(false);
-        setCurrentView("parent-dashboard");
-        showToast(`Account verified! Welcome, ${data.parent.name}!`);
-      } else {
-        setErrorMessage(data.message || "Invalid verification code.");
-      }
-    } catch (err) {
-      const verifiedParent = {
-        name: name || "New Guardian",
-        email: pendingEmail || email,
+      // Local fallback
+      const newUser = {
+        id: `usr-${Date.now()}`,
+        name,
+        email,
+        role,
         pin: pin || "1234",
-        email_verified: true
+        school,
+        subject
       };
-      setParentProfile(verifiedParent);
-      setIsLoggedIn(true);
+      login(newUser);
       setAuthModalOpen(false);
-      setCurrentView("parent-dashboard");
-      showToast("Account verified successfully!");
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Quick Demo Autofill
-  const autofillDemo = () => {
-    setEmail("sarah.m@kidstech.demo");
-    setPassword("password123");
-    setErrorMessage("");
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100 flex flex-col relative max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 relative animate-scaleUp">
         
-        {/* Close Button */}
+        {/* Close button */}
         <button
           onClick={handleClose}
-          className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-          aria-label="Close modal"
+          className="absolute top-5 right-5 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* Modal Branding Header */}
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-11 h-11 rounded-2xl bg-primary-container text-white flex items-center justify-center shadow-md">
-            <span className="text-xl">🎒</span>
+        {/* Modal Brand Header */}
+        <div className="flex items-center gap-2.5 mb-5">
+          <div className="w-10 h-10 rounded-2xl bg-primary-container text-white flex items-center justify-center text-xl shadow-md">
+            🎒
           </div>
           <div>
-            <h3 className="font-display-hero text-xl font-bold text-parent-ink">
-              {tab === "verify" ? "Verify Guardian Account" : tab === "signup" ? "Create Guardian Account" : "Parent Sign In"}
+            <h3 className="font-display-hero text-xl font-bold text-slate-900">
+              KIDS<span className="text-primary-container">TECH</span>
             </h3>
-            <p className="text-xs text-slate-500">
-              {tab === "verify" 
-                ? "Enter 6-digit verification code" 
-                : tab === "signup"
-                ? "Start full family homework assistance"
-                : "Access your parent dashboard & settings"}
+            <p className="text-[11px] text-slate-500 font-semibold">
+              Homework Bridge & Study Assistant
             </p>
           </div>
         </div>
 
-        {/* Error Alert Box */}
+        {/* Tab Switcher */}
+        <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-2xl mb-6 text-xs font-bold">
+          <button
+            onClick={() => {
+              setTab("login");
+              setErrorMessage("");
+            }}
+            className={`py-2 rounded-xl transition-all ${
+              tab === "login" ? "bg-white text-slate-900 shadow-xs font-extrabold" : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Log In
+          </button>
+          <button
+            onClick={() => {
+              setTab("signup");
+              setErrorMessage("");
+            }}
+            className={`py-2 rounded-xl transition-all ${
+              tab === "signup" ? "bg-white text-slate-900 shadow-xs font-extrabold" : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Sign Up
+          </button>
+          <button
+            onClick={() => {
+              setTab("demo");
+              setErrorMessage("");
+            }}
+            className={`py-2 rounded-xl transition-all ${
+              tab === "demo" ? "bg-white text-indigo-700 shadow-xs font-extrabold" : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Demo Roles ✨
+          </button>
+        </div>
+
         {errorMessage && (
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold mb-4 border border-rose-200 animate-shake">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-500" />
+          <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs font-bold text-rose-700 flex items-center gap-2 animate-shake">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{errorMessage}</span>
           </div>
         )}
 
-        {/* Tab Switcher (if not in verify step) */}
-        {tab !== "verify" && (
-          <div className="flex items-center p-1 rounded-2xl bg-slate-100 mb-6">
-            <button
-              onClick={() => switchTab("login")}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                tab === "login" 
-                  ? "bg-white text-parent-ink shadow-sm" 
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => switchTab("signup")}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                tab === "signup" 
-                  ? "bg-white text-parent-ink shadow-sm" 
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Create Account
-            </button>
-          </div>
-        )}
-
-        {/* -------------------- STEP 1: VERIFY CODE -------------------- */}
-        {tab === "verify" && (
-          <form onSubmit={handleVerifyCode} className="flex flex-col gap-4">
-            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex flex-col gap-1.5">
-              <span className="font-bold flex items-center gap-1.5 text-amber-800">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                COPPA Verifiable Parental Consent (VPC)
-              </span>
-              <p className="text-[11px] leading-relaxed">
-                We sent a 6-digit verification code to <strong>{pendingEmail || email}</strong>.
-              </p>
-              <div className="mt-1 pt-1 border-t border-amber-200/60 flex items-center justify-between text-[11px] text-amber-800">
-                <span>Test Code: <strong>{suggestedCode}</strong></span>
-                <button
-                  type="button"
-                  onClick={() => setVerificationCode(suggestedCode)}
-                  className="font-bold underline text-primary"
-                >
-                  Insert Code
-                </button>
+        {/* TAB 1: LOGIN */}
+        {tab === "login" && (
+          <form onSubmit={handleEmailLogin} className="flex flex-col gap-4 text-xs">
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">Email Address</label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. sarah.m@kidstech.demo"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                6-Digit Verification Code
-              </label>
-              <input
-                type="text"
-                maxLength={6}
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value.trim())}
-                placeholder="123456"
-                className="w-full text-center tracking-widest text-xl font-mono px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                required
-              />
+              <label className="font-bold text-slate-700 block mb-1">Password</label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 rounded-xl bg-primary hover:bg-sky-800 text-white font-bold text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+              className="w-full mt-2 py-3.5 bg-primary-container hover:bg-sky-500 text-white font-bold text-xs rounded-2xl shadow-md transition-all active:scale-95"
             >
-              {isLoading ? "Verifying..." : "Verify & Launch Dashboard"}
-              <ArrowRight className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => switchTab("signup")}
-              className="text-center text-xs text-slate-500 hover:text-slate-800 mt-1"
-            >
-              Back to Registration
+              {isLoading ? "Signing In..." : "Sign In to Dashboard"}
             </button>
           </form>
         )}
 
-        {/* -------------------- STEP 2: LOGIN / SIGNUP -------------------- */}
-        {tab !== "verify" && (
-          <div className="flex flex-col gap-4">
-            
-            {/* Social Authentication Buttons */}
-            <div className="flex flex-col gap-2.5">
-              {/* Google Button */}
-              <button
-                type="button"
-                onClick={() => handleGoogleAuth(tab === "signup")}
-                disabled={isLoading}
-                className="w-full py-2.5 px-4 rounded-xl border border-slate-300 hover:bg-slate-50 transition-all flex items-center justify-center gap-3 text-xs font-bold text-slate-700 shadow-xs active:scale-95"
+        {/* TAB 2: SIGN UP */}
+        {tab === "signup" && (
+          <form onSubmit={handleEmailSignup} className="flex flex-col gap-3 text-xs max-h-[460px] overflow-y-auto pr-1">
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">I am registering as a:</label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.36 24 12 24z"/>
-                  <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
-                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-                </svg>
-                <span>{tab === "signup" ? "Sign up with Google" : "Continue with Google"}</span>
-              </button>
-
-              {/* Apple Button */}
-              <button
-                type="button"
-                onClick={() => handleAppleAuth(tab === "signup")}
-                disabled={isLoading}
-                className="w-full py-2.5 px-4 rounded-xl bg-black hover:bg-slate-800 text-white transition-all flex items-center justify-center gap-3 text-xs font-bold shadow-xs active:scale-95"
-              >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 170 170">
-                  <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.74 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.06-7.7-7.89-12.04-14.49-6.3-9.6-11.2-20.73-14.71-33.39-3.51-12.66-5.26-24.36-5.26-35.1 0-14.93 3.86-27.18 11.58-36.75 7.72-9.57 17.51-14.42 29.38-14.54 4.58 0 9.87 1.25 15.86 3.75 5.99 2.5 10.02 3.8 12.09 3.9 1.84 0 6.04-1.37 12.59-4.11s12.02-3.87 16.42-3.41c13.7.67 24.33 5.48 31.9 14.42-12.18 7.37-18.15 17.38-17.91 30.04.24 10.15 4.09 18.66 11.56 25.53 7.47 6.87 16.36 10.77 26.68 11.71-2.22 6.64-4.85 13.5-7.89 20.58zM119.22 31.84c0-7.39 2.65-14.37 7.95-20.94 5.3-6.57 11.89-10.53 19.78-11.9-1.02 7.16-3.82 14.07-8.4 20.73-4.58 6.66-10.96 10.7-19.14 12.11-.04-.01-.19-.01-.19 0z" />
-                </svg>
-                <span>{tab === "signup" ? "Sign up with Apple" : "Continue with Apple"}</span>
-              </button>
+                <option value="student">Student (Grade 1–12)</option>
+                <option value="parent">Parent / Guardian</option>
+                <option value="teacher">Teacher / Educator</option>
+              </select>
             </div>
 
-            {/* Divider */}
-            <div className="flex items-center gap-3 my-1">
-              <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                or email
-              </span>
-              <div className="flex-1 h-px bg-slate-200" />
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">Full Name</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Sarah Miller"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
             </div>
 
-            {/* Form */}
-            {tab === "login" ? (
-              /* LOGIN FORM */
-              <form onSubmit={handleEmailLogin} className="flex flex-col gap-3">
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">Email Address</label>
+              <input
+                type="email"
+                required
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+            </div>
+
+            {role === "teacher" && (
+              <>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="e.g. sarah.m@kidstech.demo"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:outline-none focus:border-primary"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Password
-                    </label>
-                    <button
-                      type="button"
-                      onClick={autofillDemo}
-                      className="text-[11px] font-bold text-primary hover:underline"
-                    >
-                      Autofill Demo
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-300 text-xs focus:outline-none focus:border-primary"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full py-3 mt-1 rounded-xl bg-primary hover:bg-sky-800 text-white font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
-                  {isLoading ? "Signing In..." : "Sign In to Dashboard"}
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </form>
-            ) : (
-              /* SIGNUP FORM */
-              <form onSubmit={handleEmailSignup} className="flex flex-col gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Guardian Full Name
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g. Michael Chen"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:outline-none focus:border-primary"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="e.g. michael.chen@example.com"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:outline-none focus:border-primary"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Create Password
-                    </label>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs focus:outline-none focus:border-primary"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1" title="Protects settings from children">
-                      Guardian PIN (4 Digits)
-                    </label>
-                    <input
-                      type="password"
-                      maxLength={4}
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                      placeholder="1234"
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs text-center font-mono focus:outline-none focus:border-primary"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* COPPA Consent Checkbox */}
-                <label className="flex items-start gap-2 cursor-pointer mt-1 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100">
+                  <label className="font-bold text-slate-700 block mb-1">School Affiliation</label>
                   <input
-                    type="checkbox"
-                    checked={coppaConsent}
-                    onChange={(e) => setCoppaConsent(e.target.checked)}
-                    className="mt-0.5 rounded text-primary focus:ring-primary"
+                    type="text"
+                    placeholder="e.g. Lincoln Elementary School"
+                    value={school}
+                    onChange={(e) => setSchool(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium"
                   />
-                  <span className="text-[11px] text-slate-600 leading-tight">
-                    I verify I am 18+ and give <strong>Verifiable Parental Consent (COPPA)</strong> for AI tutoring.
-                  </span>
-                </label>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full py-3 mt-1 rounded-xl bg-primary hover:bg-sky-800 text-white font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
-                  {isLoading ? "Creating Account..." : "Create Account & Verify"}
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </form>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Grade / Subject Taught</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 5th Grade STEM & Math"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium"
+                  />
+                </div>
+              </>
             )}
 
-            {/* Footer switcher */}
-            <div className="text-center text-xs text-slate-500 pt-2 border-t border-slate-100">
-              {tab === "login" ? (
-                <span>
-                  New to KIDSTECH?{" "}
-                  <button
-                    type="button"
-                    onClick={() => switchTab("signup")}
-                    className="font-bold text-primary hover:underline"
-                  >
-                    Create Free Account
-                  </button>
-                </span>
-              ) : (
-                <span>
-                  Already have an account?{" "}
-                  <button
-                    type="button"
-                    onClick={() => switchTab("login")}
-                    className="font-bold text-primary hover:underline"
-                  >
-                    Sign In
-                  </button>
-                </span>
-              )}
+            {role === "parent" && (
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">4-Digit Parent PIN (Protects Final Answers)</label>
+                <input
+                  type="password"
+                  maxLength={4}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                  placeholder="1234"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm tracking-widest font-bold"
+                />
+              </div>
+            )}
+
+            <div className="flex items-start gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="coppaConsent"
+                checked={coppaConsent}
+                onChange={(e) => setCoppaConsent(e.target.checked)}
+                className="mt-0.5 rounded text-sky-600 focus:ring-sky-500"
+              />
+              <label htmlFor="coppaConsent" className="text-[11px] text-slate-600 leading-tight">
+                I agree to the COPPA Privacy Policy and Terms. No student homework is sold or shared with advertisers.
+              </label>
             </div>
 
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full mt-2 py-3 bg-primary hover:bg-sky-800 text-white font-bold text-xs rounded-2xl shadow-md transition-all active:scale-95"
+            >
+              {isLoading ? "Creating Account..." : `Complete ${role.toUpperCase()} Registration`}
+            </button>
+          </form>
+        )}
+
+        {/* TAB 3: DEMO ROLES (One-click instant login for testing) */}
+        {tab === "demo" && (
+          <div className="flex flex-col gap-2.5 animate-fadeIn">
+            <p className="text-xs text-slate-500 mb-2">
+              Select any role to immediately test their dedicated portal and verified features:
+            </p>
+
+            <button
+              onClick={() => handleDemoSelect("student")}
+              className="p-3.5 rounded-2xl border-2 border-sky-200 hover:border-sky-500 bg-sky-50/70 text-left flex items-center justify-between group transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🎒</span>
+                <div>
+                  <div className="font-bold text-slate-900 text-xs sm:text-sm">Student Portal (Emma, Grade 3)</div>
+                  <div className="text-[11px] text-slate-500">Homework submission, hints & mini quizzes</div>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-sky-600 group-hover:translate-x-1 transition-transform" />
+            </button>
+
+            <button
+              onClick={() => handleDemoSelect("parent")}
+              className="p-3.5 rounded-2xl border-2 border-emerald-200 hover:border-emerald-500 bg-emerald-50/70 text-left flex items-center justify-between group transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🛡️</span>
+                <div>
+                  <div className="font-bold text-slate-900 text-xs sm:text-sm">Parent Portal (Sarah Miller)</div>
+                  <div className="text-[11px] text-slate-500">PIN management, screen time limits & diagnostics</div>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-emerald-600 group-hover:translate-x-1 transition-transform" />
+            </button>
+
+            <button
+              onClick={() => handleDemoSelect("teacher")}
+              className="p-3.5 rounded-2xl border-2 border-blue-200 hover:border-blue-500 bg-blue-50/70 text-left flex items-center justify-between group transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">👨‍🏫</span>
+                <div>
+                  <div className="font-bold text-slate-900 text-xs sm:text-sm">Teacher Portal (Mr. Robert Davis)</div>
+                  <div className="text-[11px] text-slate-500">Submissions review, guidance notes & reports</div>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-blue-600 group-hover:translate-x-1 transition-transform" />
+            </button>
+
+            <div className="pt-3 border-t border-slate-200 mt-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                Restricted Project Owner Access
+              </span>
+              <button
+                onClick={() => handleDemoSelect("admin")}
+                className="w-full p-2.5 rounded-xl border border-purple-200 hover:border-purple-400 bg-purple-50/50 text-left flex items-center justify-between group transition-all"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">⚙️</span>
+                  <div>
+                    <div className="font-bold text-slate-800 text-xs">Project Owner / Admin (Eleanor Vance)</div>
+                    <div className="text-[10px] text-slate-500">Manage all accounts, teachers, verifications & payments</div>
+                  </div>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-purple-600 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
           </div>
         )}
 
@@ -620,3 +443,5 @@ export function AuthModal() {
     </div>
   );
 }
+
+export default AuthModal;

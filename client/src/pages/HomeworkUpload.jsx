@@ -162,6 +162,69 @@ export function HomeworkUpload() {
       const childName = selectedChild?.name || "Emma";
       const fileUrlsToSend = files.map((f) => f.previewUrl || "/assets/sample_math_worksheet.png");
 
+      const isFractions = prompt.toLowerCase().includes("fraction") || prompt.toLowerCase().includes("denominator");
+      const isSci = subject.toLowerCase().includes("sci") || prompt.toLowerCase().includes("cell");
+
+      const learningObjective = isFractions
+        ? "Learn how to compare fractions with different denominators by finding a common denominator."
+        : subject === "Math"
+        ? "Master multi-digit base-ten addition with place-value column alignment and regrouping."
+        : isSci
+        ? "Identify cell organelle functions and contrast plant and animal cell structures."
+        : "Extract the central umbrella idea and identify supporting textual evidence.";
+
+      const keyConcepts = isFractions
+        ? ["Common Denominators", "Equivalent Fractions", "Fraction Bars Model", "Cross-Multiplication Check"]
+        : subject === "Math"
+        ? ["Place Value", "Regrouping Across Tens", "Column Alignment", "Self-Checking Addition"]
+        : isSci
+        ? ["Cell Wall vs Membrane", "Chloroplasts (Photosynthesis)", "Mitochondria (ATP Energy)", "Nucleus Control"]
+        : ["Umbrella Main Idea", "Supporting Evidence", "Context Clues", "Summary"];
+
+      const hints = isFractions
+        ? [
+            "Hint 1: Look at the denominators (bottom numbers). If they are different, we can't compare directly yet!",
+            "Hint 2: Find a common multiple for both denominators so the pieces are the same size.",
+            "Hint 3: Multiply the top and bottom by the same number to make equivalent fractions!"
+          ]
+        : [
+            "Hint 1: Always add the ones column (right side) before the tens column!",
+            "Hint 2: If the sum is 10 or more, carry the 1 ten up to the tens place roof.",
+            "Hint 3: Don't forget to add that carried 1 when you sum the tens!"
+          ];
+
+      const visualExamples = [
+        {
+          title: isFractions ? "Visual Fraction Strips" : "Visual Place Value Model",
+          diagram: isFractions
+            ? "1/2 ➜ [████████░░░░░░░░] (2/4)\n3/4 ➜ [████████████░░░░] (3/4)\nClearly, 3/4 covers more space than 1/2!"
+            : "Tens: [10][10] | Ones: [1][1][1][1][1][1][1][1] (28)\nTens: [10]     | Ones: [1][1][1][1][1][1][1][1][1] (19)\n8 + 9 = 17 ➜ Keep 7, carry 1 ten! Total = 47"
+        }
+      ];
+
+      const miniQuiz = {
+        question: isFractions
+          ? "Quick Check: Which fraction is larger: 2/5 or 3/5?"
+          : "Quick Check: When you add 8 + 9 = 17, which digit do you carry to the tens roof?",
+        options: isFractions
+          ? ["3/5 is larger because both denominators are fifths and 3 > 2", "2/5 is larger", "They are equal", "Cannot tell"]
+          : ["Carry the 1 ten to the roof and write down the 7", "Write down 17 in the single ones box", "Ignore the 1 ten", "Subtract 8 from 9"],
+        correctIndex: 0,
+        explanation: isFractions
+          ? "Spot on! When denominators match, compare numerators: 3 pieces is larger than 2 pieces!"
+          : "Spot on! You write down the 7 ones and carry the 1 ten to the roof!"
+      };
+
+      const finalAnswers = isFractions
+        ? [
+            { question: "Compare 1/2 and 3/4", answer: "1/2 < 3/4 (3/4 is greater)", checkExplanation: "1/2 = 2/4. Since 2/4 < 3/4, 3/4 is greater by 1/4." },
+            { question: "Compare 2/3 and 3/5", answer: "2/3 > 3/5 (2/3 is greater)", checkExplanation: "Common denominator is 15: 10/15 > 9/15." }
+          ]
+        : [
+            { question: "Problem #1: 28 + 19", answer: "47", checkExplanation: "8 + 9 = 17, carry 1; 1 + 2 + 1 = 4 tens ➜ 47." },
+            { question: "Problem #2: 45 + 37", answer: "82", checkExplanation: "5 + 7 = 12, carry 1; 1 + 4 + 3 = 8 tens ➜ 82." }
+          ];
+
       const newSession = {
         id: `sess-${Date.now()}`,
         childId: selectedChild?.id || "child-1",
@@ -169,6 +232,8 @@ export function HomeworkUpload() {
         grade: selectedChild?.grade || 3,
         subject,
         topic: prompt,
+        learningObjective,
+        keyConcepts,
         date: new Date().toISOString().split("T")[0],
         status: "complete",
         standard: {
@@ -178,23 +243,32 @@ export function HomeworkUpload() {
         },
         childExplanation: {
           assignmentSummary: `Welcome back ${childName}! Let's work on ${prompt} step-by-step together!`,
+          learningObjective,
+          keyConcepts,
+          hints,
+          visualExamples,
           steps: [
             {
               stepNumber: 1,
-              title: "Understand the Core Problem",
+              title: "Understand What Is Being Asked",
               explanation: "Carefully read the question and note down the key quantities and terms from your worksheet.",
               visualTip: "Step 1: Identify Key Details"
             },
             {
               stepNumber: 2,
               title: "Apply the Targeted Strategy",
-              explanation: `Follow the teacher's guidance: ${teacherInstruction || "Break it down into manageable steps"}.`,
+              explanation: `Follow the guided steps: ${teacherInstruction || "Break it down into manageable steps and use visual models"}.`,
               visualTip: "Step 2: Solve with Strategy"
+            },
+            {
+              stepNumber: 3,
+              title: "Verify Each Part Step-by-Step",
+              explanation: "Check the intermediate calculation or concept before arriving at your final solution.",
+              visualTip: "Step 3: Self-Check Strategy"
             }
           ],
-          finalAnswers: [
-            { question: "Problem #1", answer: "Verified Solution", checkExplanation: "Confirmed through step-by-step reasoning." }
-          ],
+          miniQuiz,
+          finalAnswers,
           encouragingTip: `🌟 Fantastic focus, ${childName}! You are doing amazing work!`,
           readAloudScript: `Hello ${childName}! You're working on ${prompt}. Take it one step at a time, you are doing awesome!`
         },
@@ -216,7 +290,8 @@ export function HomeworkUpload() {
         ],
         teacherInstructionNote: teacherInstruction || "Standard encouraging guidance",
         fileUrl: fileUrlsToSend[0] || "/assets/sample_math_worksheet.png",
-        fileUrls: fileUrlsToSend.length > 0 ? fileUrlsToSend : ["/assets/sample_math_worksheet.png"]
+        fileUrls: fileUrlsToSend.length > 0 ? fileUrlsToSend : ["/assets/sample_math_worksheet.png"],
+        parentApproved: false
       };
 
       setActiveSession(newSession);

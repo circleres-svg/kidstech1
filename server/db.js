@@ -337,6 +337,458 @@ export const db = {
 
   invoices: [
     { id: "inv-2026-08", date: "Aug 15, 2026", amount: "$107.88", plan: "12 Months Annual (Best Value)", status: "Paid", receiptUrl: "#" }
+  ],
+
+  users: [
+    {
+      id: "usr-admin-1",
+      name: "Eleanor Vance",
+      email: "admin@kidstech.demo",
+      password: "password123",
+      role: "admin",
+      status: "active",
+      pin: "9999",
+      school: "KidsTech District Oversight",
+      subject: "Platform Administrator",
+      grade: null,
+      parent_name: "",
+      avatar: "robot",
+      created_date: "2026-01-15T09:00:00Z",
+      login_history: [
+        { ip: "192.168.1.1", time: "2026-11-03T08:30:00Z", device: "Chrome / Windows 11", status: "Success" },
+        { ip: "192.168.1.1", time: "2026-11-02T14:15:00Z", device: "Chrome / Windows 11", status: "Success" }
+      ]
+    },
+    {
+      id: "usr-teacher-1",
+      name: "Mr. Robert Davis",
+      email: "robert.davis@kidstech.demo",
+      password: "password123",
+      role: "teacher",
+      status: "active",
+      pin: "1234",
+      school: "Lincoln Elementary School",
+      subject: "5th Grade Math & Science",
+      grade: 5,
+      parent_name: "",
+      avatar: "owl",
+      created_date: "2026-03-10T10:00:00Z",
+      login_history: [
+        { ip: "10.0.4.12", time: "2026-11-03T07:45:00Z", device: "Safari / macOS", status: "Success" }
+      ]
+    },
+    {
+      id: "usr-teacher-2",
+      name: "Ms. Amanda Clark",
+      email: "amanda.clark@kidstech.demo",
+      password: "password123",
+      role: "teacher",
+      status: "pending_verification",
+      pin: "1234",
+      school: "Oakridge Middle School",
+      subject: "7th Grade STEM",
+      grade: 7,
+      parent_name: "",
+      avatar: "fox",
+      created_date: "2026-08-20T11:30:00Z",
+      login_history: [
+        { ip: "172.16.8.21", time: "2026-10-30T16:20:00Z", device: "Chrome / ChromeOS", status: "Success" }
+      ]
+    },
+    {
+      id: "usr-teacher-3",
+      name: "Mr. David Miller",
+      email: "david.miller@kidstech.demo",
+      password: "password123",
+      role: "teacher",
+      status: "rejected",
+      pin: "1234",
+      school: "Pine Valley Academy",
+      subject: "4th Grade English",
+      grade: 4,
+      parent_name: "",
+      avatar: "bear",
+      created_date: "2026-07-04T12:00:00Z",
+      login_history: [
+        { ip: "10.2.1.88", time: "2026-09-12T09:10:00Z", device: "Edge / Windows", status: "Success" }
+      ]
+    },
+    {
+      id: "usr-parent-1",
+      name: "Sarah Miller",
+      email: "sarah.m@kidstech.demo",
+      password: "password123",
+      role: "parent",
+      status: "active",
+      pin: "1234",
+      school: "",
+      subject: "",
+      grade: null,
+      parent_name: "",
+      avatar: "bear",
+      created_date: "2026-08-15T10:00:00Z",
+      login_history: [
+        { ip: "192.168.0.14", time: "2026-11-03T08:12:00Z", device: "Mobile Safari / iOS 19", status: "Success" }
+      ]
+    },
+    {
+      id: "usr-parent-2",
+      name: "Marcus Reed",
+      email: "marcus.r@kidstech.demo",
+      password: "password123",
+      role: "parent",
+      status: "active",
+      pin: "5678",
+      school: "",
+      subject: "",
+      grade: null,
+      parent_name: "",
+      avatar: "lion",
+      created_date: "2026-09-02T14:00:00Z",
+      login_history: [
+        { ip: "192.168.2.55", time: "2026-10-29T18:40:00Z", device: "Firefox / Android", status: "Success" }
+      ]
+    },
+    {
+      id: "usr-student-1",
+      name: "Emma",
+      email: "emma.student@kidstech.demo",
+      password: "password123",
+      role: "student",
+      status: "active",
+      pin: "",
+      school: "Lincoln Elementary School",
+      subject: "Grade 3",
+      grade: 3,
+      parent_name: "Sarah Miller",
+      avatar: "bear",
+      created_date: "2026-08-16T10:00:00Z",
+      login_history: [
+        { ip: "192.168.0.14", time: "2026-11-02T16:00:00Z", device: "iPad / Safari", status: "Success" }
+      ]
+    },
+    {
+      id: "usr-student-2",
+      name: "Noah",
+      email: "noah.student@kidstech.demo",
+      password: "password123",
+      role: "student",
+      status: "active",
+      pin: "",
+      school: "Oakridge Middle School",
+      subject: "Grade 7",
+      grade: 7,
+      parent_name: "Sarah Miller",
+      avatar: "fox",
+      created_date: "2026-08-16T10:05:00Z",
+      login_history: [
+        { ip: "192.168.0.18", time: "2026-11-01T17:30:00Z", device: "MacBook / Chrome", status: "Success" }
+      ]
+    },
+    {
+      id: "usr-student-3",
+      name: "Leo",
+      email: "leo.student@kidstech.demo",
+      password: "password123",
+      role: "student",
+      status: "active",
+      pin: "",
+      school: "Lincoln Elementary School",
+      subject: "Grade 1",
+      grade: 1,
+      parent_name: "Sarah Miller",
+      avatar: "lion",
+      created_date: "2026-09-01T12:00:00Z",
+      login_history: [
+        { ip: "192.168.0.14", time: "2026-10-28T15:00:00Z", device: "iPad / Safari", status: "Success" }
+      ]
+    }
+  ],
+
+  teacherVerifications: [
+    {
+      id: "tv-1",
+      userId: "usr-teacher-1",
+      name: "Mr. Robert Davis",
+      email: "robert.davis@kidstech.demo",
+      school: "Lincoln Elementary School",
+      licenseNumber: "TX-EDU-98214-G5",
+      subject: "Elementary STEM & Math",
+      status: "Approved",
+      documents: [
+        { name: "Texas_Standard_Educator_Certificate.pdf", size: "2.4 MB", type: "pdf" },
+        { name: "FBI_Fingerprint_Clearance_2026.pdf", size: "1.1 MB", type: "pdf" }
+      ],
+      notes: "Verified with Texas Education Agency registry. Clear background check on file.",
+      created_date: "2026-03-10T10:00:00Z",
+      updated_date: "2026-03-11T14:20:00Z"
+    },
+    {
+      id: "tv-2",
+      userId: "usr-teacher-2",
+      name: "Ms. Amanda Clark",
+      email: "amanda.clark@kidstech.demo",
+      school: "Oakridge Middle School",
+      licenseNumber: "CA-TEACH-55410-SCI",
+      subject: "Middle School General Science",
+      status: "Pending",
+      documents: [
+        { name: "California_Preliminary_Teaching_Credential.pdf", size: "3.2 MB", type: "pdf" }
+      ],
+      notes: "Submitted credentials for verification. Waiting on district email validation.",
+      created_date: "2026-08-20T11:30:00Z",
+      updated_date: "2026-08-20T11:30:00Z"
+    },
+    {
+      id: "tv-3",
+      userId: "usr-teacher-3",
+      name: "Mr. David Miller",
+      email: "david.miller@kidstech.demo",
+      school: "Pine Valley Academy",
+      licenseNumber: "FL-EXPIRED-1102",
+      subject: "English Language Arts",
+      status: "Rejected",
+      documents: [
+        { name: "Florida_Teaching_License_2023.pdf", size: "1.8 MB", type: "pdf" }
+      ],
+      notes: "Credential document submitted expired on 06/2024. Requested renewed state certificate.",
+      created_date: "2026-07-04T12:00:00Z",
+      updated_date: "2026-07-06T09:15:00Z"
+    }
+  ],
+
+  payments: [
+    {
+      id: "pay-101",
+      userId: "usr-parent-1",
+      userName: "Sarah Miller",
+      amount: 107.88,
+      planId: "12mo",
+      planName: "12 Months Annual (Best Value)",
+      status: "Succeeded",
+      date: "2026-08-15",
+      invoiceNum: "INV-2026-0081",
+      paymentMethod: "Visa •••• 4242",
+      refundReason: null
+    },
+    {
+      id: "pay-102",
+      userId: "usr-parent-2",
+      userName: "Marcus Reed",
+      amount: 71.94,
+      planId: "6mo",
+      planName: "6 Months Semester Pass",
+      status: "Succeeded",
+      date: "2026-09-02",
+      invoiceNum: "INV-2026-0094",
+      paymentMethod: "Mastercard •••• 5512",
+      refundReason: null
+    },
+    {
+      id: "pay-103",
+      userId: "usr-parent-3",
+      userName: "Jessica Chen",
+      amount: 44.97,
+      planId: "3mo",
+      planName: "3 Months Starter",
+      status: "Succeeded",
+      date: "2026-10-12",
+      invoiceNum: "INV-2026-0112",
+      paymentMethod: "Amex •••• 3009",
+      refundReason: null
+    },
+    {
+      id: "pay-104",
+      userId: "usr-parent-4",
+      userName: "Carlos Gomez",
+      amount: 107.88,
+      planId: "12mo",
+      planName: "12 Months Annual (Best Value)",
+      status: "Succeeded",
+      date: "2026-10-28",
+      invoiceNum: "INV-2026-0128",
+      paymentMethod: "Apple Pay",
+      refundReason: null
+    },
+    {
+      id: "pay-105",
+      userId: "usr-parent-5",
+      userName: "Brian Taylor",
+      amount: 44.97,
+      planId: "3mo",
+      planName: "3 Months Starter",
+      status: "Refunded",
+      date: "2026-10-05",
+      invoiceNum: "INV-2026-0105",
+      paymentMethod: "Visa •••• 1198",
+      refundReason: "Accidental duplicate family subscription requested by guardian."
+    },
+    {
+      id: "pay-106",
+      userId: "usr-parent-6",
+      userName: "Ashley White",
+      amount: 107.88,
+      planId: "12mo",
+      planName: "12 Months Annual (Best Value)",
+      status: "Failed",
+      date: "2026-11-01",
+      invoiceNum: "INV-2026-0135",
+      paymentMethod: "Visa •••• 7741",
+      refundReason: "Card declined by issuing bank (insufficient funds / expired card)."
+    },
+    {
+      id: "pay-107",
+      userId: "usr-parent-7",
+      userName: "Patricia Hill",
+      amount: 71.94,
+      planId: "6mo",
+      planName: "6 Months Semester Pass",
+      status: "Succeeded",
+      date: "2026-11-02",
+      invoiceNum: "INV-2026-0139",
+      paymentMethod: "Google Pay",
+      refundReason: null
+    }
+  ],
+
+  moderationItems: [
+    {
+      id: "mod-1",
+      type: "Worksheet Image",
+      studentName: "Emma",
+      subject: "Math",
+      content: "Grade 3 multi-digit addition worksheet with regrouping columns",
+      fileUrl: "/assets/sample_math_worksheet.png",
+      flagReason: "None - Routine upload",
+      safetyScore: "99.8%",
+      status: "Approved",
+      created_date: "2026-09-20T14:10:00Z"
+    },
+    {
+      id: "mod-2",
+      type: "Diagram Image",
+      studentName: "Noah",
+      subject: "Science",
+      content: "Plant and animal cell microscopic diagram with organelle callouts",
+      fileUrl: "/assets/sample_cell_diagram.png",
+      flagReason: "None - Routine upload",
+      safetyScore: "99.9%",
+      status: "Approved",
+      created_date: "2026-09-19T16:22:00Z"
+    },
+    {
+      id: "mod-3",
+      type: "Reading Passage",
+      studentName: "Emma",
+      subject: "Reading",
+      content: "Informational text excerpt on honeybee hive roles and social structure",
+      fileUrl: "/assets/sample_reading_bees.png",
+      flagReason: "None - Routine upload",
+      safetyScore: "100%",
+      status: "Approved",
+      created_date: "2026-09-17T11:05:00Z"
+    },
+    {
+      id: "mod-4",
+      type: "Photo Upload",
+      studentName: "Aiden Scott",
+      subject: "Math",
+      content: "Low contrast dimly lit handwriting on lined paper",
+      fileUrl: "/assets/sample_math_worksheet.png",
+      flagReason: "Image Quality Warning (Blurry OCR)",
+      safetyScore: "94.2%",
+      status: "Flagged",
+      created_date: "2026-10-25T17:40:00Z"
+    },
+    {
+      id: "mod-5",
+      type: "Student Prompt",
+      studentName: "Maya Lin",
+      subject: "General",
+      content: "Write me an entire 5-page essay on Minecraft mechanics without hints",
+      fileUrl: "",
+      flagReason: "Policy Reminder: Direct Answer Copying Prevention",
+      safetyScore: "88.0%",
+      status: "Flagged",
+      created_date: "2026-10-31T19:15:00Z"
+    }
+  ],
+
+  auditLogs: [
+    {
+      id: "log-1",
+      timestamp: "2026-11-03T08:15:22Z",
+      actorName: "Admin Eleanor Vance",
+      actorRole: "admin",
+      action: "TEACHER_APPROVAL",
+      target: "Mr. Robert Davis (usr-teacher-1)",
+      details: "Approved state credentials TX-EDU-98214-G5 for Lincoln Elementary."
+    },
+    {
+      id: "log-2",
+      timestamp: "2026-11-02T16:30:10Z",
+      actorName: "Teacher Robert Davis",
+      actorRole: "teacher",
+      action: "HOMEWORK_FEEDBACK_ADDED",
+      target: "Emma (sess-emma-math-1)",
+      details: "Provided guided encouragement on regrouping tens columns."
+    },
+    {
+      id: "log-3",
+      timestamp: "2026-11-01T14:05:44Z",
+      actorName: "Parent Sarah Miller",
+      actorRole: "parent",
+      action: "PARENT_PIN_VERIFIED",
+      target: "sess-emma-math-1",
+      details: "Unlocked final solution after Emma completed guided steps and mini-quiz."
+    },
+    {
+      id: "log-4",
+      timestamp: "2026-10-31T19:16:02Z",
+      actorName: "KidsTech AI Guard",
+      actorRole: "system",
+      action: "CONTENT_FLAGGED",
+      target: "Student Maya Lin Submission",
+      details: "Flagged direct essay generation request; redirected to Socratic outline."
+    },
+    {
+      id: "log-5",
+      timestamp: "2026-10-28T10:45:18Z",
+      actorName: "Admin Eleanor Vance",
+      actorRole: "admin",
+      action: "REFUND_PROCESSED",
+      target: "Brian Taylor ($44.97)",
+      details: "Approved accidental duplicate billing refund."
+    }
+  ],
+
+  parentControls: {
+    "parent-sarah-101": {
+      parentId: "parent-sarah-101",
+      requirePin: true,
+      screenTimeMinutes: 45,
+      weeklyGoalSessions: 4,
+      pendingApprovals: []
+    }
+  },
+
+  teacherFeedback: [
+    {
+      id: "tfb-1",
+      sessionId: "sess-emma-math-1",
+      studentId: "child-1",
+      teacherName: "Mr. Robert Davis",
+      message: "Outstanding work lining up your columns Emma! Remember to keep carrying the 1 ten onto the roof when you practice tonight.",
+      created_date: "2026-11-02T16:30:10Z"
+    },
+    {
+      id: "tfb-2",
+      sessionId: "sess-noah-sci-1",
+      studentId: "child-2",
+      teacherName: "Mr. Robert Davis",
+      message: "Great effort on plant and animal organelle distinctions, Noah! Pay close attention to how chloroplasts and mitochondria work as a team.",
+      created_date: "2026-11-01T11:20:00Z"
+    }
   ]
 };
 
@@ -349,7 +801,15 @@ import {
   persistSession,
   persistPendingVerification,
   removePendingVerification,
-  purgeCOPPAData
+  purgeCOPPAData,
+  persistUser,
+  deleteUserFromSqlite,
+  persistTeacherVerification,
+  persistPayment,
+  persistModerationItem,
+  persistAuditLog,
+  persistParentControls,
+  persistTeacherFeedback
 } from "./sqliteDb.js";
 
 // Initialize SQLite with initial seed data if fresh, otherwise load persistent records
@@ -357,7 +817,14 @@ try {
   seedDefaultDataIfEmpty({
     initialParents: db.parents,
     initialChildren: db.children,
-    initialSessions: db.sessions
+    initialSessions: db.sessions,
+    initialUsers: db.users,
+    initialTeacherVerifications: db.teacherVerifications,
+    initialPayments: db.payments,
+    initialModerationItems: db.moderationItems,
+    initialAuditLogs: db.auditLogs,
+    initialParentControls: db.parentControls,
+    initialTeacherFeedback: db.teacherFeedback
   });
 
   const sqliteData = loadAllData();
@@ -372,8 +839,29 @@ try {
   if (sqliteData.sessions.length > 0) {
     db.sessions = sqliteData.sessions;
   }
+  if (sqliteData.users.length > 0) {
+    db.users = sqliteData.users;
+  }
+  if (sqliteData.teacherVerifications.length > 0) {
+    db.teacherVerifications = sqliteData.teacherVerifications;
+  }
+  if (sqliteData.payments.length > 0) {
+    db.payments = sqliteData.payments;
+  }
+  if (sqliteData.moderationItems.length > 0) {
+    db.moderationItems = sqliteData.moderationItems;
+  }
+  if (sqliteData.auditLogs.length > 0) {
+    db.auditLogs = sqliteData.auditLogs;
+  }
+  if (Object.keys(sqliteData.parentControls).length > 0) {
+    db.parentControls = sqliteData.parentControls;
+  }
+  if (sqliteData.teacherFeedback.length > 0) {
+    db.teacherFeedback = sqliteData.teacherFeedback;
+  }
   db.pendingVerifications = sqliteData.pendingVerifications;
-  console.log(`[SQLite] Loaded ${db.children.length} children and ${db.sessions.length} sessions from kidstech.db`);
+  console.log(`[SQLite] Loaded ${db.children.length} children, ${db.sessions.length} sessions, and ${db.users.length} users from kidstech.db`);
 } catch (err) {
   console.warn("[SQLite] Database initialization warning:", err.message);
 }
@@ -385,6 +873,14 @@ export {
   persistSession,
   persistPendingVerification,
   removePendingVerification,
-  purgeCOPPAData
+  purgeCOPPAData,
+  persistUser,
+  deleteUserFromSqlite,
+  persistTeacherVerification,
+  persistPayment,
+  persistModerationItem,
+  persistAuditLog,
+  persistParentControls,
+  persistTeacherFeedback
 };
 

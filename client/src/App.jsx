@@ -14,6 +14,8 @@ import { MasteryReport } from "./pages/MasteryReport";
 import { ChildrenManagement } from "./pages/ChildrenManagement";
 import { SubscriptionBilling } from "./pages/SubscriptionBilling";
 import { AdminCurriculum } from "./pages/AdminCurriculum";
+import { AdminDashboard } from "./pages/AdminDashboard";
+import { TeacherDashboard } from "./pages/TeacherDashboard";
 import { PrivacyAndTerms } from "./pages/PrivacyAndTerms";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 
@@ -34,6 +36,8 @@ export function App() {
         {currentView === "practice" && <InteractivePractice />}
         {currentView === "worksheet" && <WorksheetGenerator />}
         {currentView === "parent-dashboard" && <ParentDashboard />}
+        {currentView === "teacher-dashboard" && <TeacherDashboard />}
+        {currentView === "admin-dashboard" && <AdminDashboard />}
         {currentView === "mastery" && <MasteryReport />}
         {currentView === "children-profiles" && <ChildrenManagement />}
         {currentView === "subscription" && <SubscriptionBilling />}

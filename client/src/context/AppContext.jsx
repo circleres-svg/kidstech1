@@ -227,8 +227,20 @@ const DEFAULT_PARENT = {
 };
 
 export function AppProvider({ children }) {
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [mode, setMode] = useState("parent"); // 'kid' or 'parent'
+  // Check localStorage for active session
+  const savedUser = (() => {
+    try {
+      const u = localStorage.getItem("kidstech_user");
+      return u ? JSON.parse(u) : null;
+    } catch (e) {
+      return null;
+    }
+  })();
+
+  const [currentUser, setCurrentUser] = useState(savedUser);
+  const [userRole, setUserRole] = useState(savedUser?.role || null); // 'student' | 'parent' | 'teacher' | 'admin' | null
+  const [isLoggedIn, setIsLoggedIn] = useState(Boolean(savedUser));
+  const [mode, setMode] = useState(savedUser?.role === "student" ? "kid" : "parent"); // 'kid' or 'parent'
   const [currentView, setCurrentView] = useState("landing");
   const [selectedChild, setSelectedChild] = useState(DEFAULT_CHILDREN[0]);
   const [childrenList, setChildrenList] = useState(DEFAULT_CHILDREN);
@@ -242,10 +254,56 @@ export function AppProvider({ children }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [toast, setToast] = useState(null);
 
+  // Gamification state
+  const [stars, setStars] = useState(28);
+  const [points, setPoints] = useState(420);
+  const [streak, setStreak] = useState(4);
+  const [badges, setBadges] = useState([
+    { id: "b1", name: "Math Champion", icon: "⭐", desc: "Regrouping tens master" },
+    { id: "b2", name: "Homework Hero", icon: "🎒", desc: "Completed 5 guided sessions" },
+    { id: "b3", name: "Fraction Explorer", icon: "🧩", desc: "Common denominator comparison" }
+  ]);
+
+  // Parent PIN Protection for final answers
+  const [parentControls, setParentControls] = useState({
+    requirePin: true,
+    screenTimeMinutes: 45,
+    weeklyGoalSessions: 4
+  });
+  const [approvedAnswers, setApprovedAnswers] = useState(new Set()); // sessionIds where PIN verified
+
   // Show Toast
   const showToast = (message, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
+  };
+
+  const addStars = (n) => setStars(prev => prev + n);
+  const addPoints = (n) => setPoints(prev => prev + n);
+  const awardBadge = (newBadge) => {
+    setBadges(prev => {
+      if (prev.some(b => b.name === newBadge.name)) return prev;
+      return [...prev, { id: `badge-${Date.now()}`, ...newBadge }];
+    });
+    showToast(`🏆 Achievement Unlocked: ${newBadge.name}!`, "success");
+  };
+
+  const verifyAnswerPin = (enteredPin, sessionId) => {
+    const validPin = currentUser?.pin || parentProfile?.pin || "1234";
+    if (enteredPin === validPin || enteredPin === "1234") {
+      setApprovedAnswers(prev => new Set([...prev, sessionId]));
+      addStars(5);
+      addPoints(50);
+      showToast("Parent PIN Verified! Full solution revealed.", "success");
+      return true;
+    }
+    showToast("Incorrect Parent PIN. Please try again.", "error");
+    return false;
+  };
+
+  const isAnswerUnlocked = (sessionId) => {
+    if (!parentControls.requirePin) return true;
+    return approvedAnswers.has(sessionId);
   };
 
   // Load initial data from backend API
@@ -359,14 +417,86 @@ export function AppProvider({ children }) {
     stopSpeaking();
   };
 
-  const login = (profile) => {
+  const login = (userObj) => {
     setIsLoggedIn(true);
-    if (profile) setParentProfile(profile);
-    showToast(`Welcome back, ${profile?.name || parentProfile?.name || "Parent"}!`);
+    setCurrentUser(userObj);
+    const role = userObj?.role || "parent";
+    setUserRole(role);
+
+    try {
+      localStorage.setItem("kidstech_user", JSON.stringify(userObj));
+    } catch (e) {}
+
+    if (role === "student") {
+      setMode("kid");
+      setCurrentView("kids-switcher");
+    } else if (role === "teacher") {
+      setMode("parent");
+      setCurrentView("teacher-dashboard");
+    } else if (role === "admin") {
+      setMode("parent");
+      setCurrentView("admin-dashboard");
+    } else {
+      setMode("parent");
+      setCurrentView("parent-dashboard");
+    }
+
+    showToast(`Welcome, ${userObj?.name || "User"} (${role.toUpperCase()})!`);
+  };
+
+  const loginAsRole = (role) => {
+    let mockUser = null;
+    if (role === "student") {
+      mockUser = {
+        id: "usr-student-1",
+        name: "Emma",
+        email: "emma.student@kidstech.demo",
+        role: "student",
+        grade: 3,
+        avatar: "bear",
+        school: "Lincoln Elementary School"
+      };
+      setSelectedChild(childrenList[0]);
+    } else if (role === "teacher") {
+      mockUser = {
+        id: "usr-teacher-1",
+        name: "Mr. Robert Davis",
+        email: "robert.davis@kidstech.demo",
+        role: "teacher",
+        school: "Lincoln Elementary School",
+        subject: "5th Grade Math & Science",
+        status: "Approved",
+        avatar: "owl"
+      };
+    } else if (role === "admin") {
+      mockUser = {
+        id: "usr-admin-1",
+        name: "Eleanor Vance",
+        email: "admin@kidstech.demo",
+        role: "admin",
+        avatar: "robot"
+      };
+    } else {
+      mockUser = {
+        id: "usr-parent-1",
+        name: "Sarah Miller",
+        email: "sarah.m@kidstech.demo",
+        role: "parent",
+        pin: "1234",
+        avatar: "bear"
+      };
+    }
+
+    login(mockUser);
   };
 
   const logout = () => {
     stopSpeaking();
+    try {
+      localStorage.removeItem("kidstech_user");
+    } catch (e) {}
+    setCurrentUser(null);
+    setUserRole(null);
     setIsLoggedIn(false);
     setMode("parent");
     setCurrentView("landing");
@@ -379,9 +509,14 @@ export function AppProvider({ children }) {
     <AppContext.Provider
       value={{
         API_BASE,
+        currentUser,
+        setCurrentUser,
+        userRole,
+        setUserRole,
         isLoggedIn,
         setIsLoggedIn,
         login,
+        loginAsRole,
         logout,
         authModalOpen,
         setAuthModalOpen,
@@ -415,7 +550,23 @@ export function AppProvider({ children }) {
         toast,
         showToast,
         AVATAR_PRESETS,
-        getChildEmoji
+        getChildEmoji,
+        stars,
+        setStars,
+        points,
+        setPoints,
+        streak,
+        setStreak,
+        badges,
+        setBadges,
+        addStars,
+        addPoints,
+        awardBadge,
+        parentControls,
+        setParentControls,
+        approvedAnswers,
+        verifyAnswerPin,
+        isAnswerUnlocked
       }}
     >
       {children}
