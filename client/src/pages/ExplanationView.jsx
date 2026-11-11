@@ -162,14 +162,15 @@ export function ExplanationView() {
   };
 
   const handleReadAloud = () => {
-    const textToRead = childExplanation.readAloudScript || `${childExplanation.assignmentSummary}. ${childExplanation.steps?.map(s => s.title + ". " + s.explanation).join(" ")}`;
+    const textToRead = childExplanation?.readAloudScript || `${childExplanation?.assignmentSummary || "Let's review the homework together."}. ${childExplanation?.steps?.map(s => s.title + ". " + s.explanation).join(" ") || ""}`;
     speakText(textToRead);
   };
 
   // Determine learning goal / objective
+  const isFraction = Boolean(topic?.toLowerCase().includes("fraction"));
   const goalText = learningObjective || childExplanation?.learningObjective || (
     subject === "Math"
-      ? (topic.toLowerCase().includes("fraction") ? "Learn how to compare fractions with different denominators by finding common multiples." : "Master two-digit column addition with place-value regrouping.")
+      ? (isFraction ? "Learn how to compare fractions with different denominators by finding common multiples." : "Master two-digit column addition with place-value regrouping.")
       : subject === "Science"
       ? "Identify microscopic cell organelles and distinguish plant cells from animal cells."
       : "Extract the central umbrella idea and identify supporting textual evidence."
@@ -178,7 +179,7 @@ export function ExplanationView() {
   // Determine key concepts
   const conceptTags = keyConcepts || childExplanation?.keyConcepts || (
     subject === "Math"
-      ? (topic.toLowerCase().includes("fraction") ? ["Common Denominators", "Equivalent Fractions", "Fraction Strips", "Cross Check"] : ["Place Value", "Tens & Ones Columns", "Carrying 10s to Roof", "Self Checking"])
+      ? (isFraction ? ["Common Denominators", "Equivalent Fractions", "Fraction Strips", "Cross Check"] : ["Place Value", "Tens & Ones Columns", "Carrying 10s to Roof", "Self Checking"])
       : subject === "Science"
       ? ["Cell Wall vs Membrane", "Chloroplasts (Photosynthesis)", "Mitochondria (ATP Energy)", "Nucleus Control"]
       : ["Umbrella Main Idea", "Supporting Evidence", "Context Clues", "Summary"]
@@ -325,7 +326,7 @@ export function ExplanationView() {
           </h2>
 
           <p className="font-body-kid-md text-base text-slate-700 leading-relaxed">
-            "{childExplanation.assignmentSummary}"
+            "{childExplanation?.assignmentSummary || "Let's work through this problem together step-by-step!"}"
           </p>
 
           {/* Attached Worksheet Photo Drawer */}

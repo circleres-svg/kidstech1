@@ -347,9 +347,11 @@ export function Header() {
           <button onClick={() => handleMobileNav(() => setCurrentView("teacher-dashboard"))} className="py-2 text-left">
             Teacher Dashboard
           </button>
-          <button onClick={() => handleMobileNav(() => setCurrentView("admin-dashboard"))} className="py-2 text-left">
-            Admin Portal
-          </button>
+          {roleName === "admin" && (
+            <button onClick={() => handleMobileNav(() => setCurrentView("admin-dashboard"))} className="py-2 text-left text-purple-700">
+              Admin Portal
+            </button>
+          )}
           {isLoggedIn ? (
             <button onClick={() => handleMobileNav(logout)} className="py-2 text-left text-rose-600">
               Log Out

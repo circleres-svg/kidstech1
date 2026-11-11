@@ -1224,7 +1224,7 @@ export function AdminDashboard() {
         {/* MODAL: RESET PASSWORD */}
         {resetPwModal && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-200 flex flex-col gap-4 animate-scaleUp">
+            <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 flex flex-col gap-4 animate-scaleUp">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-base text-slate-900">Reset Password for {resetPwModal.name}</h4>
                 <button onClick={() => setResetPwModal(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600">
@@ -1265,7 +1265,7 @@ export function AdminDashboard() {
         {/* MODAL: VIEW LOGIN SESSIONS LOG */}
         {selectedUserForHistory && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-200 flex flex-col gap-4 animate-scaleUp">
+            <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 flex flex-col gap-4 animate-scaleUp">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="font-bold text-base text-slate-900">Login History: {selectedUserForHistory.name}</h4>
